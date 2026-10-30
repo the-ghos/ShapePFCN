@@ -1,6 +1,6 @@
 ---
-name: direction-artistique
-description: Direction artistique "fil de lumière" pour pubs motion design 9:16 (TikTok, Reels, Shorts) — tirée de 3 vidéos de référence (parfum NUÉLA, Higgsfield, ElevenLabs). À charger dès que l'utilisateur envoie un texte, un brief, un nom de marque, un produit, une image ou une vidéo et veut une pub, une animation, un storyboard ou "la même DA". Donne la grammaire visuelle, les effets, les transitions, les palettes, le storyboard type et la méthode pour analyser une nouvelle référence.
+name: fil-de-lumiere
+description: Thème /fil-de-lumiere — Direction artistique "fil de lumière" pour pubs motion design 9:16 (TikTok, Reels, Shorts) — tirée de 3 vidéos de référence (parfum NUÉLA, Higgsfield, ElevenLabs). À charger dès que l'utilisateur envoie un texte, un brief, un nom de marque, un produit, une image ou une vidéo et veut une pub, une animation, un storyboard ou "la même DA". Donne la grammaire visuelle, les effets, les transitions, les palettes, le storyboard type et la méthode pour analyser une nouvelle référence.
 ---
 
 # Direction artistique — « Le fil de lumière »
