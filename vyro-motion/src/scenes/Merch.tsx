@@ -21,6 +21,8 @@ type Item = {
   glow: string;
   target: [number, number];
   dropSize: number;
+  dark?: boolean;
+  cardHeight: number;
   print: (id: string) => React.ReactNode;
 };
 
@@ -38,6 +40,7 @@ export const ITEMS: Item[] = [
     glow: "rgba(69,140,255,0.5)",
     target: [272, 178],
     dropSize: 14,
+    cardHeight: 330,
     print: (id) => (
       <>
         <g transform="translate(272 178)">
@@ -45,6 +48,30 @@ export const ITEMS: Item[] = [
         </g>
         <g transform="translate(272 232)">
           <PrintWord size={21} color={INK} motion={false} />
+        </g>
+      </>
+    ),
+  },
+  {
+    key: "polo-zip",
+    name: "POLO ZIP",
+    sub: "Maille texturée · Col zippé",
+    src: "garments/polo-black.png",
+    w: 704,
+    h: 808,
+    height: 800,
+    glow: "rgba(255,176,58,0.45)",
+    target: [492, 232],
+    dropSize: 20,
+    dark: true,
+    cardHeight: 320,
+    print: (id) => (
+      <>
+        <g transform="translate(492 232)">
+          <PrintMark w={118} id={id} />
+        </g>
+        <g transform="translate(492 318)">
+          <PrintWord size={33} color="#ffffff" />
         </g>
       </>
     ),
@@ -60,6 +87,7 @@ export const ITEMS: Item[] = [
     glow: "rgba(255,90,31,0.45)",
     target: [300, 170],
     dropSize: 22,
+    cardHeight: 250,
     print: (id) => (
       <>
         <g transform="translate(300 160)">
@@ -82,6 +110,7 @@ export const ITEMS: Item[] = [
     glow: "rgba(123,92,255,0.5)",
     target: [238, 246],
     dropSize: 18,
+    cardHeight: 330,
     print: (id) => (
       <>
         <g transform="translate(238 246)">
@@ -89,6 +118,29 @@ export const ITEMS: Item[] = [
         </g>
         <g transform="translate(238 326)">
           <PrintWord size={38} color={INK} />
+        </g>
+      </>
+    ),
+  },
+  {
+    key: "pants",
+    name: "PANTALON",
+    sub: "Molleton gris chiné · Coupe droite",
+    src: "garments/pants.png",
+    w: 471,
+    h: 860,
+    height: 860,
+    glow: "rgba(240,48,74,0.45)",
+    target: [150, 215],
+    dropSize: 16,
+    cardHeight: 360,
+    print: (id) => (
+      <>
+        <g transform="translate(150 215)">
+          <PrintMark w={92} id={id} />
+        </g>
+        <g transform="translate(150 282)">
+          <PrintWord size={27} color={INK} />
         </g>
       </>
     ),
@@ -171,6 +223,7 @@ const ItemShot: React.FC<{ item: Item; index: number }> = ({ item, index }) => {
           h={item.h}
           height={item.height}
           id={id}
+          dark={item.dark}
           print={
             <g
               opacity={printP}
@@ -256,8 +309,8 @@ const ItemShot: React.FC<{ item: Item; index: number }> = ({ item, index }) => {
 const Lineup: React.FC = () => {
   const f = useCurrentFrame();
   const { width, height } = useVideoConfig();
-  const cardW = 470;
-  const gap = 36;
+  const cardW = 326;
+  const gap = 26;
   const total = cardW * ITEMS.length + gap * (ITEMS.length - 1);
   const reveal = interpolate(f, [0, 22], [0, 1], { ...cl, easing: Easing.bezier(0.7, 0, 0.3, 1) });
   const cam = interpolate(f, [0, 90], [1.12, 1], { ...cl, easing: out });
@@ -313,10 +366,10 @@ const Lineup: React.FC = () => {
                     overflow: "hidden",
                   }}
                 >
-                  <div style={{ height: 400, marginTop: 34, display: "flex", alignItems: "center", filter: "drop-shadow(0 24px 28px rgba(0,0,0,0.5))" }}>
-                    <PhotoGarment src={item.src} w={item.w} h={item.h} height={item.key === "cap" ? 300 : 390} id={`lu${i}`} print={item.print(`lu${i}p`)} />
+                  <div style={{ height: 380, marginTop: 30, display: "flex", alignItems: "center", filter: "drop-shadow(0 24px 28px rgba(0,0,0,0.5))" }}>
+                    <PhotoGarment src={item.src} w={item.w} h={item.h} height={item.cardHeight} id={`lu${i}`} dark={item.dark} print={item.print(`lu${i}p`)} />
                   </div>
-                  <div style={{ fontFamily: displayFont, fontSize: 40, color: C.white, marginTop: 24 }}>{item.name}</div>
+                  <div style={{ fontFamily: displayFont, fontSize: 34, color: C.white, marginTop: 22 }}>{item.name}</div>
                   <div style={{ fontFamily: labelFont, fontWeight: 600, fontSize: 20, letterSpacing: 6, color: C.motion, marginTop: 8 }}>
                     VYRO MOTION
                   </div>

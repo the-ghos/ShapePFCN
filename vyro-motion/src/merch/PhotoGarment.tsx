@@ -14,7 +14,8 @@ export const PhotoGarment: React.FC<{
   print: React.ReactNode; // drawn in source pixel coordinates
   id: string;
   overlay?: React.ReactNode; // non-printed overlay (drops, ripples) in source pixel coords
-}> = ({ src, w, h, height, print, id, overlay }) => {
+  dark?: boolean; // dark fabric: print sits on top (no multiply)
+}> = ({ src, w, h, height, print, id, overlay, dark = false }) => {
   const width = (height * w) / h;
   const url = staticFile(src);
   return (
@@ -24,7 +25,7 @@ export const PhotoGarment: React.FC<{
         style={{
           position: "absolute",
           inset: 0,
-          mixBlendMode: "multiply",
+          mixBlendMode: dark ? "normal" : "multiply",
           WebkitMaskImage: `url(${url})`,
           WebkitMaskSize: "100% 100%",
           maskImage: `url(${url})`,
@@ -38,7 +39,7 @@ export const PhotoGarment: React.FC<{
               <feColorMatrix
                 in="photo"
                 type="matrix"
-                values="3 0 0 0 -1.6  0 3 0 0 -1.6  0 0 3 0 -1.6  0 0 0 1 0"
+                values={dark ? "6 0 0 0 0  0 6 0 0 0  0 0 6 0 0  0 0 0 1 0" : "3 0 0 0 -1.6  0 3 0 0 -1.6  0 0 3 0 -1.6  0 0 0 1 0"}
                 result="mapRaw"
               />
               <feGaussianBlur in="mapRaw" stdDeviation="3" result="map" />
@@ -47,7 +48,7 @@ export const PhotoGarment: React.FC<{
               <feGaussianBlur in="warped" stdDeviation="0.25" />
             </filter>
           </defs>
-          <g filter={`url(#${id}-cloth)`} opacity={0.96}>
+          <g filter={`url(#${id}-cloth)`} opacity={dark ? 0.92 : 0.96}>
             {print}
           </g>
         </svg>
@@ -55,7 +56,7 @@ export const PhotoGarment: React.FC<{
       {/* gentle sheen from the original photo on top of the print */}
       <Img
         src={url}
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", mixBlendMode: "soft-light", opacity: 0.35 }}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", mixBlendMode: dark ? "overlay" : "soft-light", opacity: dark ? 0.5 : 0.35 }}
       />
       {overlay ? (
         <svg viewBox={`0 0 ${w} ${h}`} width="100%" height="100%" style={{ position: "absolute", inset: 0, overflow: "visible" }}>
