@@ -9,7 +9,7 @@ import { AbsoluteFill, Sequence, staticFile } from "remotion";
 import { Intro } from "./scenes/Intro";
 import { Logo3D } from "./scenes/Logo3D";
 import { LogoReveal } from "./scenes/LogoReveal";
-import { Merch, MERCH_DURATION, ITEM_STEP } from "./scenes/Merch";
+import { Merch, MERCH_DURATION, ITEM_STEP, ITEMS } from "./scenes/Merch";
 import { Outro, OUTRO_DURATION } from "./scenes/Outro";
 
 const SCENES = [
@@ -87,14 +87,14 @@ export const VyroMotion: React.FC = () => {
       <Sequence from={S_MERCH} durationInFrames={MERCH_DURATION} layout="none">
         <Audio src={staticFile("sfx/pulse.wav")} volume={0.7} />
       </Sequence>
-      {[0, 1, 2, 3].map((i) => (
+      {ITEMS.map((_, i) => (
         <React.Fragment key={i}>
           <Sfx at={S_MERCH + i * ITEM_STEP} src="whoosh" volume={0.55} />
           <Sfx at={S_MERCH + i * ITEM_STEP + 24} src="drip" volume={0.8} />
         </React.Fragment>
       ))}
-      <Sfx at={S_MERCH + ITEM_STEP * 4 + 5} src="whoosh" volume={0.6} />
-      <Sfx at={S_MERCH + ITEM_STEP * 4 + 12} src="impact" volume={0.5} />
+      <Sfx at={S_MERCH + ITEM_STEP * ITEMS.length + 5} src="whoosh" volume={0.6} />
+      <Sfx at={S_MERCH + ITEM_STEP * ITEMS.length + 12} src="impact" volume={0.5} />
       {/* outro */}
       <Sfx at={S_OUTRO - 10} src="riser" volume={0.5} />
       <Sfx at={S_OUTRO + 20} src="drip" volume={1} />

@@ -3,98 +3,92 @@ import { AbsoluteFill, Easing, interpolate, Sequence, useCurrentFrame, useVideoC
 import { Air } from "../fx/Air";
 import { Background } from "../fx/Background";
 import { Drop, Ripples, Splash } from "../fx/Water";
-import { Garment, GarmentKind, PrintMark, PrintWord } from "../merch/Garments";
+import { PrintMark, PrintWord } from "../merch/Garments";
+import { PhotoGarment } from "../merch/PhotoGarment";
 import { C, displayFont, labelFont } from "../theme";
 
 const cl = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 const out = Easing.bezier(0.16, 1, 0.3, 1);
 
 type Item = {
-  kind: GarmentKind;
+  key: string;
   name: string;
   sub: string;
-  color: string;
-  shade: string;
+  src: string;
+  w: number;
+  h: number;
+  height: number;
   glow: string;
   target: [number, number];
+  dropSize: number;
   print: (id: string) => React.ReactNode;
-  sheen: number;
 };
+
+const INK = "#15151c";
 
 export const ITEMS: Item[] = [
   {
-    kind: "tee",
-    name: "T-SHIRT",
-    sub: "Oversize · Coton bio 240 g",
-    color: "#1a1a22",
-    shade: "#000",
-    glow: "rgba(255,90,31,0.45)",
-    target: [500, 330],
-    sheen: 1,
+    key: "polo",
+    name: "POLO",
+    sub: "Piqué coton · Col contrasté",
+    src: "garments/polo.png",
+    w: 412,
+    h: 516,
+    height: 820,
+    glow: "rgba(69,140,255,0.5)",
+    target: [272, 178],
+    dropSize: 14,
     print: (id) => (
       <>
-        <g transform="translate(500 330)">
-          <PrintMark w={210} id={id} />
+        <g transform="translate(272 178)">
+          <PrintMark w={74} id={id} />
         </g>
-        <g transform="translate(500 525)">
-          <PrintWord size={78} color="#fff" />
+        <g transform="translate(272 232)">
+          <PrintWord size={21} color={INK} motion={false} />
         </g>
       </>
     ),
   },
   {
-    kind: "cap",
+    key: "cap",
     name: "CASQUETTE",
-    sub: "6 panneaux · Logo brodé",
-    color: "#ebe3d3",
-    shade: "#5a4630",
-    glow: "rgba(69,200,255,0.45)",
-    target: [500, 440],
-    sheen: 1,
-    print: (id) => (
-      <g transform="translate(505 440)">
-        <PrintMark w={200} id={id} />
-      </g>
-    ),
-  },
-  {
-    kind: "hoodie",
-    name: "HOODIE",
-    sub: "Molleton 400 g · Capuche doublée",
-    color: "#ece7df",
-    shade: "#5d5468",
-    glow: "rgba(123,92,255,0.5)",
-    target: [500, 400],
-    sheen: 1,
+    sub: "Trucker · Filet respirant",
+    src: "garments/cap.png",
+    w: 566,
+    h: 599,
+    height: 760,
+    glow: "rgba(255,90,31,0.45)",
+    target: [300, 170],
+    dropSize: 22,
     print: (id) => (
       <>
-        <g transform="translate(500 400)">
-          <PrintMark w={170} id={id} />
+        <g transform="translate(300 160)">
+          <PrintMark w={200} id={id} />
         </g>
-        <g transform="translate(500 565)">
-          <PrintWord size={60} color="#16161d" />
+        <g transform="translate(300 300)">
+          <PrintWord size={48} color={INK} motion={false} />
         </g>
       </>
     ),
   },
   {
-    kind: "pants",
-    name: "JOGGER",
-    sub: "Coupe fuselée · Bandes contrastées",
-    color: "#23232b",
-    shade: "#000",
-    glow: "rgba(240,48,74,0.45)",
-    target: [395, 300],
-    sheen: 1,
+    key: "hoodie",
+    name: "HOODIE",
+    sub: "Molleton 400 g · Coupe oversize",
+    src: "garments/hoodie.png",
+    w: 468,
+    h: 587,
+    height: 840,
+    glow: "rgba(123,92,255,0.5)",
+    target: [238, 246],
+    dropSize: 18,
     print: (id) => (
       <>
-        <g transform="translate(395 300)">
-          <PrintMark w={110} id={id} lines={false} />
+        <g transform="translate(238 246)">
+          <PrintMark w={120} id={id} />
         </g>
-        <g transform="translate(628 560) rotate(90)">
-          <text textAnchor="middle" fontFamily={displayFont} fontSize={44} fill="#fff" letterSpacing={6}>
-            VYRO
-          </text>
+        <g transform="translate(238 326)">
+          <PrintWord size={38} color={INK} />
         </g>
       </>
     ),
@@ -103,7 +97,6 @@ export const ITEMS: Item[] = [
 
 export const ITEM_STEP = 55;
 const IMPACT = 24;
-const BOX = 860;
 
 const ItemShot: React.FC<{ item: Item; index: number }> = ({ item, index }) => {
   const f = useCurrentFrame();
@@ -149,7 +142,7 @@ const ItemShot: React.FC<{ item: Item; index: number }> = ({ item, index }) => {
 
       {/* platform ring */}
       <svg width={width} height={height} style={{ position: "absolute" }}>
-        <ellipse cx={gx} cy={gy + 400} rx={360 * enter} ry={60 * enter} fill="none" stroke="url(#plat)" strokeWidth={3} opacity={0.7} />
+        <ellipse cx={gx} cy={gy + 410} rx={360 * enter} ry={60 * enter} fill="none" stroke="url(#plat)" strokeWidth={3} opacity={0.7} />
         <ellipse cx={gx} cy={gy + 400} rx={300 * enter} ry={46 * enter} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={1} strokeDasharray="4 10" />
         <defs>
           <linearGradient id="plat" x1="0" x2="1">
@@ -163,22 +156,21 @@ const ItemShot: React.FC<{ item: Item; index: number }> = ({ item, index }) => {
       <div
         style={{
           position: "absolute",
-          left: gx - BOX / 2,
-          top: gy - BOX / 2,
-          width: BOX,
-          height: BOX,
-          translate: `0 ${floatY + (1 - enter) * 80}px`,
-          transform: `perspective(1600px) rotateY(${rotY}deg)`,
+          left: gx,
+          top: gy,
+          translate: `-50% calc(-50% + ${floatY + (1 - enter) * 80}px)`,
+          transform: `perspective(1800px) rotateY(${rotY * 0.45}deg)`,
           scale: interpolate(enter, [0, 1], [0.82, 1]),
           opacity: enter,
+          filter: "drop-shadow(0 40px 50px rgba(0,0,0,0.55)) drop-shadow(0 0 60px rgba(255,255,255,0.06))",
         }}
       >
-        <Garment
-          kind={item.kind}
-          color={item.color}
-          shade={item.shade}
+        <PhotoGarment
+          src={item.src}
+          w={item.w}
+          h={item.h}
+          height={item.height}
           id={id}
-          sheen={item.sheen}
           print={
             <g
               opacity={printP}
@@ -187,13 +179,15 @@ const ItemShot: React.FC<{ item: Item; index: number }> = ({ item, index }) => {
               {item.print(`${id}p`)}
             </g>
           }
+          overlay={
+            <>
+              {f < IMPACT ? <Drop cx={tx} cy={interpolate(fall, [0, 1], [-260, ty])} size={item.dropSize} stretch={1 + fall} id={`${id}d`} /> : null}
+              <Ripples frame={f} t0={IMPACT} cx={tx} cy={ty} count={4} maxR={item.w * 0.45} squash={0.8} duration={36} gap={4} id={`${id}r`} width={2.5} />
+              <Splash frame={f} t0={IMPACT} cx={tx} cy={ty} count={18} power={0.35} id={`${id}s`} />
+              <circle cx={tx} cy={ty} r={item.w * 0.22} fill="#fff" opacity={flash * 0.6} style={{ mixBlendMode: "overlay" }} />
+            </>
+          }
         />
-        <svg viewBox="0 0 1000 1000" width="100%" height="100%" style={{ position: "absolute", inset: 0, overflow: "visible" }}>
-          {f < IMPACT ? <Drop cx={tx} cy={interpolate(fall, [0, 1], [-500, ty])} size={30} stretch={1 + fall} id={`${id}d`} /> : null}
-          <Ripples frame={f} t0={IMPACT} cx={tx} cy={ty} count={4} maxR={420} squash={0.75} duration={36} gap={4} id={`${id}r`} width={4} />
-          <Splash frame={f} t0={IMPACT} cx={tx} cy={ty} count={18} power={0.6} id={`${id}s`} />
-          <circle cx={tx} cy={ty} r={180} fill="#fff" opacity={flash * 0.5} style={{ mixBlendMode: "overlay" }} />
-        </svg>
       </div>
 
       {/* typography */}
@@ -209,7 +203,7 @@ const ItemShot: React.FC<{ item: Item; index: number }> = ({ item, index }) => {
             translate: `${(1 - textIn(0)) * -40}px 0`,
           }}
         >
-          0{index + 1} / 04 — VYRO WEAR
+          0{index + 1} / 0{ITEMS.length} — VYRO WEAR
         </div>
         <div style={{ overflow: "hidden", marginTop: 14 }}>
           <div
@@ -262,9 +256,9 @@ const ItemShot: React.FC<{ item: Item; index: number }> = ({ item, index }) => {
 const Lineup: React.FC = () => {
   const f = useCurrentFrame();
   const { width, height } = useVideoConfig();
-  const cardW = 380;
+  const cardW = 470;
   const gap = 36;
-  const total = cardW * 4 + gap * 3;
+  const total = cardW * ITEMS.length + gap * (ITEMS.length - 1);
   const reveal = interpolate(f, [0, 22], [0, 1], { ...cl, easing: Easing.bezier(0.7, 0, 0.3, 1) });
   const cam = interpolate(f, [0, 90], [1.12, 1], { ...cl, easing: out });
   return (
@@ -295,7 +289,7 @@ const Lineup: React.FC = () => {
             const o = interpolate(f, [10 + i * 6, 20 + i * 6], [0, 1], cl);
             return (
               <div
-                key={item.kind}
+                key={item.key}
                 style={{
                   width: cardW,
                   height: 560,
@@ -319,8 +313,8 @@ const Lineup: React.FC = () => {
                     overflow: "hidden",
                   }}
                 >
-                  <div style={{ width: 360, height: 400, marginTop: 30 }}>
-                    <Garment kind={item.kind} color={item.color} shade={item.shade} id={`lu${i}`} sheen={item.sheen} print={item.print(`lu${i}p`)} />
+                  <div style={{ height: 400, marginTop: 34, display: "flex", alignItems: "center", filter: "drop-shadow(0 24px 28px rgba(0,0,0,0.5))" }}>
+                    <PhotoGarment src={item.src} w={item.w} h={item.h} height={item.key === "cap" ? 300 : 390} id={`lu${i}`} print={item.print(`lu${i}p`)} />
                   </div>
                   <div style={{ fontFamily: displayFont, fontSize: 40, color: C.white, marginTop: 24 }}>{item.name}</div>
                   <div style={{ fontFamily: labelFont, fontWeight: 600, fontSize: 20, letterSpacing: 6, color: C.motion, marginTop: 8 }}>
@@ -336,17 +330,17 @@ const Lineup: React.FC = () => {
   );
 };
 
-export const MERCH_DURATION = ITEM_STEP * 4 + 100;
+export const MERCH_DURATION = ITEM_STEP * ITEMS.length + 100;
 
 export const Merch: React.FC = () => {
   return (
     <AbsoluteFill style={{ backgroundColor: C.bg0 }}>
       {ITEMS.map((item, i) => (
-        <Sequence key={item.kind} from={i * ITEM_STEP} durationInFrames={i === 3 ? ITEM_STEP + 30 : ITEM_STEP + 25}>
+        <Sequence key={item.key} from={i * ITEM_STEP} durationInFrames={i === 3 ? ITEM_STEP + 30 : ITEM_STEP + 25}>
           <ItemShot item={item} index={i} />
         </Sequence>
       ))}
-      <Sequence from={ITEM_STEP * 4 + 5}>
+      <Sequence from={ITEM_STEP * ITEMS.length + 5}>
         <Lineup />
       </Sequence>
     </AbsoluteFill>
