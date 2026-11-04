@@ -658,6 +658,47 @@ const Handle: React.FC = () => {
 };
 
 /* ===================== SFX ===================== */
+/* ===================== VOIX OFF ===================== */
+/* [start (s) in the video, clip duration (s)] — each line lands on its scene/beat */
+const VO: [number, number][] = [
+  [4.55, 1.68], // Il n'y a qu'un seul roi.
+  [T(8) / FPS + 0.3, 1.02], // La vitesse.
+  [T(9.7) / FPS, 1.12], // La puissance.
+  [T(12) / FPS + 0.2, 1.57], // Personne ne le rattrape.
+  [T(16) / FPS + 0.25, 1.84], // Finale de Coupe du monde...
+  [T(20) / FPS + 0.12, 0.91], // Triplé !
+  [T(36) / FPS + 0.12, 1.55], // Plus de quatre cents buts !
+  [T(40) / FPS + 0.2, 1.21], // Champion du monde.
+  [T(50) / FPS + 0.1, 1.87], // Sept fois champion de France.
+  [T(52) / FPS + 0.3, 1.95], // Soulier d'or européen.
+  [T(58.5) / FPS, 1.15], // Pas de comparaison.
+  [T(60) / FPS, 0.84], // Pas de débat.
+  [T(62) / FPS + 0.08, 1.19], // Le meilleur au monde.
+  [T(64) / FPS + 0.25, 1.24], // Kylian Mbappé.
+];
+
+/* music ducks under the voice */
+const musicVolume = (fr: number) => {
+  let duck = 0;
+  for (const [s, d] of VO) {
+    const a = f(s);
+    const b = f(s + d);
+    duck = Math.max(duck, interpolate(fr, [a - 6, a, b, b + 8], [0, 1, 1, 0], clamp));
+  }
+  const fadeOut = interpolate(fr, [TOTAL - 20, TOTAL], [1, 0], clamp);
+  return (1 - 0.5 * duck) * fadeOut;
+};
+
+const VoiceOver: React.FC = () => (
+  <>
+    {VO.map(([s, d], i) => (
+      <Sequence key={`vo${i}`} from={f(s)} durationInFrames={f(d) + 6} name={`Voix ${i + 1}`}>
+        <Audio src={staticFile(`vo/vo${i}.wav`)} volume={1} />
+      </Sequence>
+    ))}
+  </>
+);
+
 const Sfx: React.FC = () => {
   const whooshes = [T(8), T(12), T(16), T(20), T(40), T(42), T(44), T(46), T(48), T(52), T(56), T(64)];
   const impacts = [T(4), T(36), T(50), T(58), T(62), ...GOAL_HITS];
@@ -759,8 +800,9 @@ export const Main: React.FC = () => {
       <Sequence from={T(52)} name="Handle">
         <Handle />
       </Sequence>
-      <Audio src={staticFile("music.wav")} volume={(fr) => interpolate(fr, [TOTAL - 20, TOTAL], [1, 0], clamp)} />
+      <Audio src={staticFile("music.wav")} volume={(fr) => musicVolume(fr)} />
       <Sfx />
+      <VoiceOver />
     </AbsoluteFill>
   );
 };
