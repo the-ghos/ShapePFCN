@@ -1,0 +1,13 @@
+node_modules
+dist
+.DS_Store
+.env
+
+# Ignore the output video from Git but not videos you import into src/.
+out
+
+# Media sources (copyrighted footage/photos, large) and renders
+public/clips/
+public/img/
+public/music.wav
+out/
