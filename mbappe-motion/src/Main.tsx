@@ -661,20 +661,20 @@ const Handle: React.FC = () => {
 /* ===================== VOIX OFF ===================== */
 /* [start (s) in the video, clip duration (s)] — each line lands on its scene/beat */
 const VO: [number, number][] = [
-  [4.55, 1.68], // Il n'y a qu'un seul roi.
-  [T(8) / FPS + 0.3, 1.02], // La vitesse.
-  [T(9.7) / FPS, 1.12], // La puissance.
-  [T(12) / FPS + 0.2, 1.57], // Personne ne le rattrape.
-  [T(16) / FPS + 0.25, 1.84], // Finale de Coupe du monde...
-  [T(20) / FPS + 0.12, 0.91], // Triplé !
-  [T(36) / FPS + 0.12, 1.55], // Plus de quatre cents buts !
-  [T(40) / FPS + 0.2, 1.21], // Champion du monde.
-  [T(50) / FPS + 0.1, 1.87], // Sept fois champion de France.
-  [T(52) / FPS + 0.3, 1.95], // Soulier d'or européen.
-  [T(58.5) / FPS, 1.15], // Pas de comparaison.
-  [T(60) / FPS, 0.84], // Pas de débat.
-  [T(62) / FPS + 0.08, 1.19], // Le meilleur au monde.
-  [T(64) / FPS + 0.25, 1.24], // Kylian Mbappé.
+  [4.55, 1.41], // Il n'y a qu'un seul roi.
+  [T(8) / FPS + 0.3, 0.85], // La vitesse.
+  [T(9.5) / FPS, 0.93], // La puissance.
+  [T(12) / FPS + 0.2, 1.32], // Personne ne le rattrape.
+  [T(16) / FPS + 0.25, 1.54], // Finale de Coupe du monde...
+  [T(20) / FPS + 0.12, 0.78], // Triplé !
+  [T(36) / FPS + 0.12, 1.30], // Plus de quatre cents buts !
+  [T(40) / FPS + 0.2, 1.02], // Champion du monde.
+  [T(50) / FPS + 0.1, 1.57], // Sept fois champion de France.
+  [T(52) / FPS + 0.3, 1.63], // Soulier d'or européen.
+  [T(58.5) / FPS, 0.97], // Pas de comparaison.
+  [T(60) / FPS, 0.70], // Pas de débat.
+  [T(62) / FPS + 0.08, 1.00], // Le meilleur au monde.
+  [T(64) / FPS + 0.25, 1.04], // Kylian Mbappé.
 ];
 
 /* music ducks under the voice */
