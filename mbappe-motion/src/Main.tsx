@@ -18,6 +18,7 @@ import {
   Confetti,
   DISPLAY,
   f,
+  FPS,
   Finish,
   GlitchWord,
   GoldText,
@@ -53,12 +54,29 @@ const HANDLE = "@viber.flow4";
 const CUTS = [8, 12, 16, 20, 23, 25, 27, 29, 31, 33, 35, 36, 38, 40, 42, 44, 46, 48, 50, 52, 56, 58, 64].map(T);
 const BIG_HITS = [T(4), T(16), T(20), T(36), T(50), T(52), T(58)];
 
+/* Goals: the ball hits the net EXACTLY on a beat.
+   hit = moment (s) in the clip where the ball goes in / is struck.
+   pre = playback speed before the hit, post = slow-motion after the hit. */
+const GOALS: { src: string; hit: number; pre: number; post: number }[] = [
+  { src: "g_b", hit: 2.1, pre: 1.3, post: 0.55 },
+  { src: "fra_goal1", hit: 0.85, pre: 0.72, post: 0.5 },
+  { src: "g_e", hit: 1.4, pre: 1.3, post: 0.55 },
+  { src: "g_f", hit: 0.8, pre: 0.9, post: 0.55 },
+  { src: "fra_goal2", hit: 2.0, pre: 1.3, post: 0.6 },
+  { src: "g_a", hit: 0.85, pre: 0.95, post: 0.55 },
+];
+const GOAL_SLOT = (i: number) => T(23 + i * 2);
+const GOAL_HIT = (i: number) => T(24 + i * 2); // 2nd beat of each 2-beat slot
+const WC_HIT = T(19);
+const GOAL_HITS = [WC_HIT, ...GOALS.map((_, i) => GOAL_HIT(i))];
+
 /* ===================== GLOBAL CAMERA SHAKE ===================== */
 const Shake: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const frame = useCurrentFrame();
   let amp = 0;
   for (const c of CUTS) if (frame >= c) amp = Math.max(amp, 12 * Math.exp(-(frame - c) / 3));
   for (const c of BIG_HITS) if (frame >= c) amp = Math.max(amp, 34 * Math.exp(-(frame - c) / 5));
+  for (const c of GOAL_HITS) if (frame >= c) amp = Math.max(amp, 28 * Math.exp(-(frame - c) / 4));
   const x = (random(`shx${frame}`) - 0.5) * 2 * amp;
   const y = (random(`shy${frame}`) - 0.5) * 2 * amp;
   const r = (random(`shr${frame}`) - 0.5) * amp * 0.06;
@@ -74,6 +92,7 @@ const Flash: React.FC = () => {
   let o = 0;
   for (const c of CUTS) if (frame >= c) o = Math.max(o, 0.75 * Math.exp(-(frame - c) / 2.2));
   for (const c of BIG_HITS) if (frame >= c) o = Math.max(o, 1 * Math.exp(-(frame - c) / 3.5));
+  for (const c of GOAL_HITS) if (frame >= c) o = Math.max(o, 0.7 * Math.exp(-(frame - c) / 2.6));
   return <AbsoluteFill style={{ backgroundColor: "#fff8e6", opacity: o, pointerEvents: "none" }} />;
 };
 
@@ -276,12 +295,41 @@ const Tag: React.FC<{ top: string; main: string; start?: number }> = ({ top, mai
   </AbsoluteFill>
 );
 
+/* Speed ramp: fast into the hit (on the beat), slow-motion after it */
+const RampShot: React.FC<{
+  src: string;
+  hit: number;
+  hitFrame: number;
+  pre: number;
+  post: number;
+  dur: number;
+}> = ({ src, hit, hitFrame, pre, post, dur }) => {
+  const frame = useCurrentFrame();
+  const punch = frame >= hitFrame ? 1 + 0.12 * Math.exp(-(frame - hitFrame) / 6) : 1;
+  const start = Math.max(0, hit - (hitFrame / FPS) * pre);
+  return (
+    <AbsoluteFill style={{ scale: String(punch * interpolate(frame, [0, dur], [1.04, 1.16])) }}>
+      <Sequence durationInFrames={hitFrame} layout="none">
+        <Clip src={src} trim={start} rate={pre} zoom={[1, 1]} />
+      </Sequence>
+      <Sequence from={hitFrame} durationInFrames={dur - hitFrame} layout="none">
+        <AbsoluteFill>
+          <Clip src={src} trim={hit} rate={post} zoom={[1, 1]} />
+        </AbsoluteFill>
+      </Sequence>
+    </AbsoluteFill>
+  );
+};
+
 const WorldCupFinal: React.FC = () => (
   <AbsoluteFill>
-    <ZoomCut>
-      <Clip src="wc_goal" trim={0.9} rate={1.2} zoom={[1.0, 1.12]} />
+    <ZoomCut outFrames={4}>
+      <RampShot src="wc_goal" hit={3.55} hitFrame={WC_HIT - T(16)} pre={1.15} post={0.55} dur={T(20) - T(16)} />
     </ZoomCut>
     <Tag top="FINALE · COUPE DU MONDE 2022" main="LE PLUS GRAND MATCH" />
+    <Sequence from={WC_HIT - T(16)} layout="none">
+      <Shockwave at={0} y="45%" />
+    </Sequence>
   </AbsoluteFill>
 );
 
@@ -306,15 +354,6 @@ const Scream: React.FC = () => {
   );
 };
 
-const GOALS: { src: string; trim: number; rate: number }[] = [
-  { src: "g_b", trim: 0.6, rate: 1.2 },
-  { src: "fra_goal1", trim: 0.9, rate: 1.25 },
-  { src: "g_e", trim: 0.1, rate: 1.15 },
-  { src: "g_f", trim: 0.0, rate: 1.2 },
-  { src: "fra_goal2", trim: 0.5, rate: 1.3 },
-  { src: "g_a", trim: 0.0, rate: 1.2 },
-];
-
 const GoalCounter: React.FC = () => {
   const frame = useCurrentFrame();
   const n = Math.round(
@@ -335,7 +374,7 @@ const GoalCounter: React.FC = () => {
 /* "BUT" stamp on each goal */
 const Stamp: React.FC = () => {
   const frame = useCurrentFrame();
-  const at = T(1.2);
+  const at = T(1);
   const p = interpolate(frame, [at, at + 6], [0, 1], { ...clamp, easing: Easing.out(Easing.back(2.5)) });
   const o = interpolate(frame, [at, at + 2, T(2) - 4, T(2)], [0, 1, 1, 0], clamp);
   return (
@@ -621,7 +660,7 @@ const Handle: React.FC = () => {
 /* ===================== SFX ===================== */
 const Sfx: React.FC = () => {
   const whooshes = [T(8), T(12), T(16), T(20), T(40), T(42), T(44), T(46), T(48), T(52), T(56), T(64)];
-  const impacts = [T(4), T(36), T(50), T(58), T(62)];
+  const impacts = [T(4), T(36), T(50), T(58), T(62), ...GOAL_HITS];
   const shines = [T(40), T(42), T(44), T(46), T(48), T(52)];
   return (
     <>
@@ -665,9 +704,16 @@ export const Main: React.FC = () => {
           <Scream />
         </Sequence>
         {GOALS.map((g, i) => (
-          <Sequence key={g.src} from={T(23 + i * 2)} durationInFrames={T(25 + i * 2) - T(23 + i * 2)} name={`But ${i + 1}`}>
+          <Sequence key={g.src} from={GOAL_SLOT(i)} durationInFrames={T(25 + i * 2) - GOAL_SLOT(i)} name={`But ${i + 1}`}>
             <ZoomCut inFrames={5} outFrames={4} inScale={1.25}>
-              <Clip src={g.src} trim={g.trim} rate={g.rate} zoom={[1.05, 1.15]} />
+              <RampShot
+                src={g.src}
+                hit={g.hit}
+                hitFrame={GOAL_HIT(i) - GOAL_SLOT(i)}
+                pre={g.pre}
+                post={g.post}
+                dur={T(25 + i * 2) - GOAL_SLOT(i)}
+              />
             </ZoomCut>
             <Stamp />
           </Sequence>
