@@ -739,18 +739,18 @@ const Handle: React.FC = () => {
 
 /* ===================== AUDIO ===================== */
 const VO: [number, number][] = [
-  [0.55, 2.97], // Il y a des soirs… où tout un stade retient son souffle.
-  [4.3, 2.6], // Ce soir, tous les regards…
-  [10.45, 1.87], // Né en 2003, à Stourbridge.
-  [13.2, 2.47], // Arrivé à Madrid à vingt ans… il a tout conquis.
-  [21.7, 1.87], // Le calme… avant la tempête.
-  [25.15, 1.05], // Jude Bellingham.
-  [30.95, 1.34], // Le sang-froid des grands soirs.
-  [33.85, 2.35], // Et quand il marque… le Bernabéu se lève.
-  [39.85, 2.13], // Champion d'Europe. Champion d'Espagne.
-  [45.85, 1.87], // Golden Boy. Trophée Kopa.
-  [51.75, 1.43], // Les grands joueurs gagnent des matchs.
-  [54.1, 2.3], // Les légendes… gagnent des soirs comme celui-ci.
+  [0.55, 2.81], // Il y a des soirs… où tout un stade retient son souffle.
+  [4.3, 2.96], // Ce soir, tous les regards…
+  [10.45, 1.76], // Né en 2003, à Stourbridge.
+  [13.2, 2.60], // Arrivé à Madrid à vingt ans… il a tout conquis.
+  [21.7, 1.97], // Le calme… avant la tempête.
+  [25.15, 1.12], // Jude Bellingham.
+  [30.95, 1.49], // Le sang-froid des grands soirs.
+  [33.85, 2.41], // Et quand il marque… le Bernabéu se lève.
+  [39.85, 1.92], // Champion d'Europe. Champion d'Espagne.
+  [45.85, 1.68], // Golden Boy. Trophée Kopa.
+  [51.75, 1.65], // Les grands joueurs gagnent des matchs.
+  [54.1, 2.30], // Les légendes… gagnent des soirs comme celui-ci.
 ];
 
 const musicVol = (fr: number) => {
