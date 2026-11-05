@@ -739,18 +739,18 @@ const Handle: React.FC = () => {
 
 /* ===================== AUDIO ===================== */
 const VO: [number, number][] = [
-  [0.55, 2.81], // Il y a des soirs… où tout un stade retient son souffle.
-  [4.3, 2.96], // Ce soir, tous les regards…
-  [10.45, 1.76], // Né en 2003, à Stourbridge.
-  [13.2, 2.60], // Arrivé à Madrid à vingt ans… il a tout conquis.
-  [21.7, 1.97], // Le calme… avant la tempête.
-  [25.15, 1.12], // Jude Bellingham.
-  [30.95, 1.49], // Le sang-froid des grands soirs.
-  [33.85, 2.41], // Et quand il marque… le Bernabéu se lève.
-  [39.85, 1.92], // Champion d'Europe. Champion d'Espagne.
-  [45.85, 1.68], // Golden Boy. Trophée Kopa.
-  [51.75, 1.65], // Les grands joueurs gagnent des matchs.
-  [54.1, 2.30], // Les légendes… gagnent des soirs comme celui-ci.
+  [0.55, 2.55], // Il y a des soirs… où tout un stade retient son souffle.
+  [4.3, 2.57], // Ce soir, tous les regards…
+  [10.45, 1.68], // Né en 2003, à Stourbridge.
+  [13.2, 2.30], // Arrivé à Madrid à vingt ans… il a tout conquis.
+  [21.7, 1.66], // Le calme… avant la tempête.
+  [25.15, 0.83], // Jude Bellingham.
+  [30.95, 1.32], // Le sang-froid des grands soirs.
+  [33.85, 2.18], // Et quand il marque… le Bernabéu se lève.
+  [39.85, 1.85], // Champion d'Europe. Champion d'Espagne.
+  [45.85, 1.60], // Golden Boy. Trophée Kopa.
+  [51.75, 1.47], // Les grands joueurs gagnent des matchs.
+  [54.1, 2.16], // Les légendes… gagnent des soirs comme celui-ci.
 ];
 
 const musicVol = (fr: number) => {
@@ -771,7 +771,7 @@ const Sound: React.FC = () => (
     <Audio src={staticFile("jb/crowd_amb.wav")} volume={crowdVol} loop />
     {VO.map(([a, d], i) => (
       <Sequence key={`vo${i}`} from={s(a)} durationInFrames={s(d) + 6}>
-        <Audio src={staticFile(`jb/vo/l${i}.wav`)} volume={1.05} />
+        <Audio src={staticFile(`jb/vo/l${i}.wav`)} volume={i === 5 ? 1.5 : 1.1} />
       </Sequence>
     ))}
     {[24.8, 25.75, 26.6, 19.0, 19.5, 20.0, 20.5, 21.0].map((t, i) => (
