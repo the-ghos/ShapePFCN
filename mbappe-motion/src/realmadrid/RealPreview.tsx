@@ -30,7 +30,7 @@ const BEAT = 60 / 70;
 const T = (n: number) => n * BEAT; // seconds
 const CL = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 const OUT = Easing.bezier(0.16, 1, 0.3, 1);
-export const RM_TOTAL = s(58.27);
+export const RM_TOTAL = s(56.6);
 
 const DISPLAY = "Anton, Impact, sans-serif";
 const SANS = "Montserrat, Arial, sans-serif";
@@ -119,7 +119,7 @@ const Rise: React.FC<{ children: React.ReactNode; at?: number; dur?: number; fro
 /* top broadcast bug */
 const Bug: React.FC = () => {
   const frame = useCurrentFrame();
-  const o = interpolate(frame, [s(0.6), s(1.2)], [0, 1], CL) * interpolate(frame, [s(57.2), s(57.6)], [1, 0], CL);
+  const o = interpolate(frame, [s(0.6), s(1.2)], [0, 1], CL) * interpolate(frame, [s(55.6), s(56.0)], [1, 0], CL);
   return (
     <div style={{ position: "absolute", top: 70, left: 48, right: 48, display: "flex", justifyContent: "space-between", alignItems: "center", opacity: o }}>
       <div style={{ display: "flex", alignItems: "stretch", boxShadow: "0 6px 20px rgba(0,0,0,0.4)" }}>
@@ -463,7 +463,7 @@ const Mosaic: React.FC = () => {
 
 const FAMILY = [7, 5, 2, 9];
 const Family: React.FC = () => {
-  const seg = s(T(1.5));
+  const seg = s(T(1.1));
   return (
     <AbsoluteFill>
       {FAMILY.map((n, i) => (
@@ -482,7 +482,7 @@ const Family: React.FC = () => {
 
 const Finale: React.FC = () => {
   const frame = useCurrentFrame();
-  const fade = interpolate(frame, [s(2.9), s(3.4)], [1, 0], CL);
+  const fade = interpolate(frame, [s(1.6), s(2.1)], [1, 0], CL);
   const pop = interpolate(frame, [0, 10], [1.6, 1], { ...CL, easing: Easing.out(Easing.back(1.8)) });
   return (
     <AbsoluteFill style={{ opacity: fade }}>
@@ -518,13 +518,13 @@ const SCENES: { name: string; from: number; to: number; el: React.ReactNode; wip
   { name: "Mosaïque", from: 54, to: 56, el: <Mosaic />, wipe: true },
   { name: "Intercontinentale", from: 56, to: 58, el: <Trophy n={4} kicker="FIFA · 2024" title="COUPE INTERCONTINENTALE" />, wipe: true },
   { name: "Chap. 04", from: 58, to: 59.2, el: <Chapter n="04" title="UNE FAMILLE" sub="UN SEUL CŒUR" dark /> },
-  { name: "Famille", from: 59.2, to: 64.2, el: <Family /> },
-  { name: "Final", from: 64.2, to: 68, el: <Finale />, wipe: true },
+  { name: "Famille", from: 59.2, to: 63.6, el: <Family /> },
+  { name: "Final", from: 63.6, to: 68, el: <Finale />, wipe: true },
 ];
 
 const GlobalFlash: React.FC = () => {
   const frame = useCurrentFrame();
-  const big = [36, 50, 64.2].map((b) => s(T(b)));
+  const big = [36, 50, 63.6].map((b) => s(T(b)));
   let w = 0;
   for (const a of big) if (frame >= a) w = Math.max(w, Math.exp(-(frame - a) / 3));
   return <AbsoluteFill style={{ background: WHITE, opacity: w * 0.9, pointerEvents: "none" }} />;
@@ -547,7 +547,7 @@ const Grain: React.FC = () => {
 
 const Shake: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const frame = useCurrentFrame();
-  const hits = [36, 50, 64.2, 21.5 + 3.4, 37.5 + 4.6].map((b) => s(T(b)));
+  const hits = [36, 50, 63.6, 21.5 + 3.4, 37.5 + 4.6].map((b) => s(T(b)));
   let a = 0;
   for (const h of hits) if (frame >= h) a = Math.max(a, 20 * Math.exp(-(frame - h) / 4));
   return <AbsoluteFill style={{ translate: `${(random(`x${frame}`) - 0.5) * 2 * a}px ${(random(`y${frame}`) - 0.5) * 2 * a}px` }}>{children}</AbsoluteFill>;
@@ -555,10 +555,10 @@ const Shake: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 const Sound: React.FC = () => {
   const whoosh = SCENES.slice(1).map((sc) => sc.from);
-  const impacts = [36, 50, 64.2, 21.5 + 1.8, 37.5 + 4.6, 16 + 1.6];
+  const impacts = [36, 50, 63.6, 21.5 + 1.8, 37.5 + 4.6, 16 + 1.6];
   return (
     <>
-      <Audio src={staticFile("music.wav")} volume={(f) => interpolate(f, [RM_TOTAL - 24, RM_TOTAL], [1, 0], CL)} />
+      <Sequence from={s(0.35)}><Audio src={staticFile("rm/music.wav")} volume={1} /></Sequence>
       <Audio src={staticFile("jb/crowd_amb.wav")} volume={0.22} loop />
       {whoosh.map((b, i) => (
         <Sequence key={`w${i}`} from={Math.max(0, s(T(b)) - 8)} durationInFrames={22}><Audio src={staticFile("sfx/whoosh.wav")} volume={0.4} /></Sequence>
