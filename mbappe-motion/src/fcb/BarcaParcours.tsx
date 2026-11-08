@@ -6,6 +6,7 @@ import {
   interpolate,
   random,
   Sequence,
+  spring,
   staticFile,
   useCurrentFrame,
   useVideoConfig,
@@ -17,7 +18,9 @@ import { loadFont } from "@remotion/fonts";
    FC BARCELONE · LE PARCOURS — avant Atlético–Barça (8 nov. 2026)
    Musique vidIQ 120 BPM (temps = 0.5 s, mesures à x.09),
    drop 18.09 s, respiration 34–36 s, coup final 56 s.
-   Les plages de la future voix off sont dans VO (vide pour l'instant).
+   v2 : transitions zoom/whip avec flou de mouvement, pulsations sur
+   le temps, punch-zooms, rampes de vitesse, pop-ups à ressort,
+   décalage RVB sur les drops, images améliorées (EDSR x2).
    ============================================================ */
 
 loadFont({ family: "Anton", url: staticFile("fonts/anton.woff2"), weight: "400" });
@@ -41,19 +44,32 @@ const DEEP = "#07102e";
 const WHITE = "#ffffff";
 
 /* ---------------- médias ---------------- */
-const Clip: React.FC<{ src: string; trim?: number; rate?: number; zoom?: [number, number]; pos?: string; filter?: string }> = ({
-  src, trim = 0, rate = 1, zoom = [1.06, 1.0], pos = "50% 50%", filter,
+/** Vidéo plein cadre. `punch` = frames (locales) où l'image fait un zoom sec puis revient. */
+const Clip: React.FC<{ src: string; trim?: number; rate?: number; zoom?: [number, number]; pos?: string; filter?: string; punch?: number[] }> = ({
+  src, trim = 0, rate = 1, zoom = [1.06, 1.0], pos = "50% 50%", filter, punch = [],
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
+  let p = 0;
+  for (const a of punch) p = Math.max(p, interpolate(frame, [a, a + 2, a + 14], [0, 1, 0], CL));
+  const sc = interpolate(frame, [0, durationInFrames], zoom, CL) * (1 + 0.12 * p);
   return (
     <AbsoluteFill style={{ overflow: "hidden", background: DEEP }}>
-      <Video src={staticFile(`fcb/c/${src}.mp4`)} trimBefore={s(trim)} playbackRate={rate} muted objectFit="cover"
-        style={{ width: "100%", height: "100%", objectPosition: pos, transformOrigin: pos, filter,
-          scale: String(interpolate(frame, [0, durationInFrames], zoom, CL)) }} />
+      <Video src={staticFile(`fcb/c2/${src}.mp4`)} trimBefore={s(trim)} playbackRate={rate} muted objectFit="cover"
+        style={{ width: "100%", height: "100%", objectPosition: pos, transformOrigin: pos, filter, scale: String(sc) }} />
     </AbsoluteFill>
   );
 };
+
+/** Rampe de vitesse : rapide puis ralenti (deux plans enchaînés). */
+const Ramp: React.FC<{ src: string; trim: number; fastDur: number; fastRate?: number; slowRate?: number; zoom?: [number, number]; pos?: string }> = ({
+  src, trim, fastDur, fastRate = 1.6, slowRate = 0.45, zoom = [1.08, 1.2], pos,
+}) => (
+  <AbsoluteFill>
+    <Sequence durationInFrames={s(fastDur)}><Clip src={src} trim={trim} rate={fastRate} zoom={[zoom[0], zoom[0] + 0.04]} pos={pos} /></Sequence>
+    <Sequence from={s(fastDur)}><Clip src={src} trim={trim + fastDur * fastRate} rate={slowRate} zoom={[zoom[0] + 0.04, zoom[1]]} pos={pos} punch={[0]} /></Sequence>
+  </AbsoluteFill>
+);
 
 const Full: React.FC<{ src: string; zoom?: [number, number]; pos?: string; filter?: string }> = ({ src, zoom = [1.04, 1.16], pos = "50% 40%", filter }) => {
   const frame = useCurrentFrame();
@@ -61,22 +77,24 @@ const Full: React.FC<{ src: string; zoom?: [number, number]; pos?: string; filte
   return (
     <AbsoluteFill style={{ overflow: "hidden", background: DEEP }}>
       <Img src={staticFile(`fcb/img/${src}.jpg`)} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: pos, transformOrigin: pos, filter,
-        scale: String(interpolate(frame, [0, durationInFrames], zoom, CL)) }} />
+        scale: String(interpolate(frame, [0, durationInFrames], zoom, { ...CL, easing: Easing.inOut(Easing.sin) })) }} />
     </AbsoluteFill>
   );
 };
 
+/** Photo non verticale : fond flouté + image nette (fondu haut/bas) + parallaxe. */
 const Framed: React.FC<{ src: string; top?: number; zoom?: [number, number]; width?: number; children?: React.ReactNode }> = ({
   src, top = 260, zoom = [1.0, 1.08], width = 1080, children,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
   const url = staticFile(`fcb/img/${src}.jpg`);
-  const sc = interpolate(frame, [0, durationInFrames], zoom, CL);
+  const sc = interpolate(frame, [0, durationInFrames], zoom, { ...CL, easing: Easing.inOut(Easing.sin) });
+  const bgy = interpolate(frame, [0, durationInFrames], [30, -30]);
   const fade = "linear-gradient(to bottom, transparent 0%, #000 8%, #000 86%, transparent 100%)";
   return (
     <AbsoluteFill style={{ overflow: "hidden", background: DEEP }}>
-      <Img src={url} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", filter: "blur(46px) brightness(0.4) saturate(1.3)", scale: "1.35" }} />
+      <Img src={url} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", filter: "blur(46px) brightness(0.4) saturate(1.3)", scale: "1.4", translate: `0 ${bgy}px` }} />
       <div style={{ position: "absolute", left: (1080 - width) / 2, top, width, transformOrigin: "50% 40%", scale: String(sc) }}>
         <Img src={url} style={{ width: "100%", display: "block", WebkitMaskImage: fade, maskImage: fade }} />
         {children}
@@ -85,48 +103,67 @@ const Framed: React.FC<{ src: string; top?: number; zoom?: [number, number]; wid
   );
 };
 
-/* ---------------- habillage ---------------- */
+/* ---------------- transitions ---------------- */
+type Enter = "zoom" | "whipL" | "whipR" | "spin" | "drop" | "none";
+/** Entrée/sortie de scène avec flou de mouvement. La sortie fait un léger zoom avant + flou (cut sur le temps). */
+const Trans: React.FC<{ children: React.ReactNode; enter?: Enter; exit?: boolean }> = ({ children, enter = "zoom", exit = true }) => {
+  const frame = useCurrentFrame();
+  const { durationInFrames } = useVideoConfig();
+  const p = interpolate(frame, [0, 9], [0, 1], { ...CL, easing: OUT });
+  const q = exit ? interpolate(frame, [durationInFrames - 6, durationInFrames], [0, 1], { ...CL, easing: Easing.in(Easing.cubic) }) : 0;
+  let tf = "";
+  let blur = 0;
+  if (enter === "zoom") { tf = `scale(${1.35 - 0.35 * p})`; blur = (1 - p) * 14; }
+  if (enter === "whipL") { tf = `translateX(${(1 - p) * 900}px) skewX(${(1 - p) * -12}deg)`; blur = (1 - p) * 22; }
+  if (enter === "whipR") { tf = `translateX(${(p - 1) * 900}px) skewX(${(1 - p) * 12}deg)`; blur = (1 - p) * 22; }
+  if (enter === "spin") { tf = `rotate(${(1 - p) * -10}deg) scale(${1.4 - 0.4 * p})`; blur = (1 - p) * 16; }
+  if (enter === "drop") { tf = `translateY(${(p - 1) * 700}px) scale(${1.15 - 0.15 * p})`; blur = (1 - p) * 20; }
+  tf += ` scale(${1 + q * 0.18})`;
+  blur += q * 12;
+  return <AbsoluteFill style={{ transform: tf, filter: blur > 0.3 ? `blur(${blur}px)` : undefined }}>{children}</AbsoluteFill>;
+};
+
+/** Bandes blaugrana qui balaient l'écran. */
+const StripeWipe: React.FC<{ at?: number; dur?: number; diag?: boolean }> = ({ at = 0, dur = 16, diag }) => {
+  const frame = useCurrentFrame();
+  const n = 7;
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none", overflow: "hidden", transform: diag ? "rotate(-14deg) scale(1.5)" : undefined }}>
+      {Array.from({ length: n }).map((_, i) => {
+        const d = i * 1.1;
+        const p = interpolate(frame, [at + d, at + d + dur], [0, 1], { ...CL, easing: Easing.inOut(Easing.cubic) });
+        const y = interpolate(p, [0, 1], [110, -110]);
+        return <div key={i} style={{ position: "absolute", top: 0, left: `${(i * 100) / n}%`, width: `${100 / n + 0.6}%`, height: "100%",
+          background: i % 3 === 2 ? GOLD : i % 2 ? BLAU : GRANA, transform: `translateY(${y}%)` }} />;
+      })}
+    </AbsoluteFill>
+  );
+};
+
+/* ---------------- effets ---------------- */
 const Grade: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <AbsoluteFill style={{ filter: "contrast(1.1) saturate(1.12) brightness(0.95)" }}>{children}</AbsoluteFill>
+  <AbsoluteFill style={{ filter: "contrast(1.1) saturate(1.14) brightness(0.96)" }}>{children}</AbsoluteFill>
 );
 const Vignette: React.FC = () => (
   <AbsoluteFill style={{ pointerEvents: "none", background: "radial-gradient(ellipse at 50% 45%, transparent 45%, rgba(0,0,0,0.6) 100%)" }} />
 );
-const Shade: React.FC<{ h?: number; top?: boolean }> = ({ h = 900, top }) => (
-  <div style={{ position: "absolute", left: 0, right: 0, [top ? "top" : "bottom"]: 0, height: h,
-    background: `linear-gradient(to ${top ? "bottom" : "top"}, rgba(7,16,46,0.96) 0%, rgba(7,16,46,0.65) 45%, transparent 100%)` }} />
+const Shade: React.FC<{ h?: number }> = ({ h = 900 }) => (
+  <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: h,
+    background: "linear-gradient(to top, rgba(7,16,46,0.97) 0%, rgba(7,16,46,0.7) 45%, transparent 100%)" }} />
 );
 
-const Rise: React.FC<{ children: React.ReactNode; at?: number; dur?: number; dy?: number; style?: React.CSSProperties }> = ({ children, at = 0, dur = 12, dy = 60, style }) => {
+/** Décalage RVB (grenat/bleu) bref, déclenché aux frames données. */
+const RGBSplit: React.FC<{ children: React.ReactNode; at: number[]; amt?: number }> = ({ children, at, amt = 26 }) => {
   const frame = useCurrentFrame();
-  const p = interpolate(frame, [at, at + dur], [0, 1], { ...CL, easing: OUT });
-  return <div style={{ opacity: p, transform: `translateY(${(1 - p) * dy}px)`, filter: `blur(${(1 - p) * 8}px)`, ...style }}>{children}</div>;
-};
-
-/** Texte qui se révèle derrière un masque (glisse depuis le bas). */
-const Mask: React.FC<{ children: React.ReactNode; at?: number; style?: React.CSSProperties }> = ({ children, at = 0, style }) => {
-  const frame = useCurrentFrame();
-  const p = interpolate(frame, [at, at + 14], [0, 1], { ...CL, easing: OUT });
+  let k = 0;
+  for (const a of at) if (frame >= a) k = Math.max(k, interpolate(frame, [a, a + 8], [1, 0], CL));
+  if (k < 0.02) return <AbsoluteFill>{children}</AbsoluteFill>;
+  const d = amt * k;
   return (
-    <div style={{ overflow: "hidden", paddingTop: 10, ...style }}>
-      <div style={{ transform: `translateY(${(1 - p) * 110}%)` }}>{children}</div>
-    </div>
-  );
-};
-
-/** Bandes blaugrana qui balaient l'écran (transition signature). */
-const StripeWipe: React.FC<{ at?: number; dur?: number }> = ({ at = 0, dur = 16 }) => {
-  const frame = useCurrentFrame();
-  const n = 6;
-  return (
-    <AbsoluteFill style={{ pointerEvents: "none", overflow: "hidden" }}>
-      {Array.from({ length: n }).map((_, i) => {
-        const d = i * 1.2;
-        const p = interpolate(frame, [at + d, at + d + dur], [0, 1], { ...CL, easing: Easing.inOut(Easing.cubic) });
-        const y = interpolate(p, [0, 1], [110, -110]);
-        return <div key={i} style={{ position: "absolute", top: 0, left: `${(i * 100) / n}%`, width: `${100 / n + 0.5}%`, height: "100%",
-          background: i % 2 ? BLAU : GRANA, transform: `translateY(${y}%)` }} />;
-      })}
+    <AbsoluteFill>
+      <AbsoluteFill>{children}</AbsoluteFill>
+      <AbsoluteFill style={{ transform: `translateX(${d}px)`, mixBlendMode: "screen", opacity: 0.55, filter: "url(#fcbRed)" }}>{children}</AbsoluteFill>
+      <AbsoluteFill style={{ transform: `translateX(${-d}px)`, mixBlendMode: "screen", opacity: 0.55, filter: "url(#fcbBlue)" }}>{children}</AbsoluteFill>
     </AbsoluteFill>
   );
 };
@@ -143,7 +180,17 @@ const LightSweep: React.FC<{ at?: number; dur?: number }> = ({ at = 0, dur = 26 
   const p = interpolate(frame, [at, at + dur], [-0.4, 1.4], CL);
   return (
     <AbsoluteFill style={{ pointerEvents: "none", mixBlendMode: "screen",
-      background: `linear-gradient(105deg, transparent ${p * 100 - 12}%, rgba(255,230,160,0.55) ${p * 100}%, transparent ${p * 100 + 12}%)` }} />
+      background: `linear-gradient(105deg, transparent ${p * 100 - 12}%, rgba(255,230,160,0.5) ${p * 100}%, transparent ${p * 100 + 12}%)` }} />
+  );
+};
+
+/** Fuite de lumière chaude qui traverse l'image. */
+const Leak: React.FC<{ at?: number; dur?: number; color?: string }> = ({ at = 0, dur = 30, color = "rgba(255,120,40,0.9)" }) => {
+  const frame = useCurrentFrame();
+  const p = interpolate(frame, [at, at + dur], [0, 1], CL);
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none", mixBlendMode: "screen", opacity: Math.sin(p * Math.PI) * 0.7,
+      background: `radial-gradient(circle at ${-10 + p * 120}% ${20 + p * 40}%, ${color} 0%, rgba(165,0,68,0.45) 22%, transparent 50%)` }} />
   );
 };
 
@@ -152,11 +199,28 @@ const Particles: React.FC<{ count?: number; color?: string }> = ({ count = 40, c
   return (
     <AbsoluteFill style={{ pointerEvents: "none" }}>
       {Array.from({ length: count }).map((_, i) => {
-        const x = random(`px${i}`) * 1080;
+        const x = random(`px${i}`) * 1080 + Math.sin(frame / 20 + i) * 14;
         const sp = 1 + random(`ps${i}`) * 3;
         const y = 1920 - ((frame * sp * 3 + random(`py${i}`) * 1920) % 2100);
         const r = 2 + random(`pr${i}`) * 5;
         return <div key={i} style={{ position: "absolute", left: x, top: y, width: r, height: r, borderRadius: "50%", background: color, opacity: 0.35 + random(`po${i}`) * 0.5, boxShadow: `0 0 ${r * 3}px ${color}` }} />;
+      })}
+    </AbsoluteFill>
+  );
+};
+
+const Confetti: React.FC<{ count?: number }> = ({ count = 70 }) => {
+  const frame = useCurrentFrame();
+  const cols = [GRANA, BLAU, GOLD, WHITE];
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
+      {Array.from({ length: count }).map((_, i) => {
+        const x0 = random(`cx${i}`) * 1080;
+        const v = 6 + random(`cv${i}`) * 9;
+        const y = -60 + frame * v - random(`cy${i}`) * 600;
+        const x = x0 + Math.sin(frame / 8 + i) * 30;
+        const rot = frame * (4 + random(`cr${i}`) * 10);
+        return <div key={i} style={{ position: "absolute", left: x, top: y, width: 14, height: 24, background: cols[i % 4], transform: `rotate(${rot}deg) rotateX(${rot * 1.3}deg)`, opacity: 0.9 }} />;
       })}
     </AbsoluteFill>
   );
@@ -173,7 +237,79 @@ const Shockwave: React.FC<{ at?: number; color?: string }> = ({ at = 0, color = 
   );
 };
 
-/** Petit habillage permanent en haut. */
+/** Lignes de vitesse radiales (drops). */
+const SpeedLines: React.FC<{ at?: number; dur?: number }> = ({ at = 0, dur = 14 }) => {
+  const frame = useCurrentFrame();
+  const o = interpolate(frame, [at, at + 2, at + dur], [0, 0.8, 0], CL);
+  if (o <= 0) return null;
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none", opacity: o }}>
+      <svg width="1080" height="1920">
+        {Array.from({ length: 46 }).map((_, i) => {
+          const a = (i / 46) * Math.PI * 2 + random(`sl${i}`) * 0.1;
+          const r0 = 420 + random(`sr${i}`) * 200;
+          return <line key={i} x1={540 + Math.cos(a) * r0} y1={960 + Math.sin(a) * r0} x2={540 + Math.cos(a) * 1400} y2={960 + Math.sin(a) * 1400}
+            stroke="white" strokeWidth={2 + random(`sw${i}`) * 5} strokeOpacity={0.6} />;
+        })}
+      </svg>
+    </AbsoluteFill>
+  );
+};
+
+/* ---------------- typographie & pop-ups ---------------- */
+const useSpring = (at: number, damping = 11, mass = 0.7) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  return spring({ frame: frame - at, fps, config: { damping, mass, stiffness: 170 } });
+};
+
+const Rise: React.FC<{ children: React.ReactNode; at?: number; dur?: number; dy?: number; style?: React.CSSProperties }> = ({ children, at = 0, dur = 12, dy = 60, style }) => {
+  const frame = useCurrentFrame();
+  const p = interpolate(frame, [at, at + dur], [0, 1], { ...CL, easing: OUT });
+  return <div style={{ opacity: p, transform: `translateY(${(1 - p) * dy}px)`, filter: `blur(${(1 - p) * 8}px)`, ...style }}>{children}</div>;
+};
+
+/** Pop-up avec ressort (dépasse puis se stabilise). */
+const Pop: React.FC<{ children: React.ReactNode; at?: number; style?: React.CSSProperties; from?: number }> = ({ children, at = 0, style, from = 0.2 }) => {
+  const k = useSpring(at);
+  const frame = useCurrentFrame();
+  return <div style={{ transform: `scale(${from + (1 - from) * k})`, opacity: frame < at ? 0 : Math.min(1, k * 1.5), ...style }}>{children}</div>;
+};
+
+/** Texte révélé derrière un masque. */
+const Mask: React.FC<{ children: React.ReactNode; at?: number; style?: React.CSSProperties }> = ({ children, at = 0, style }) => {
+  const frame = useCurrentFrame();
+  const p = interpolate(frame, [at, at + 14], [0, 1], { ...CL, easing: OUT });
+  return (
+    <div style={{ overflow: "hidden", paddingTop: 10, ...style }}>
+      <div style={{ transform: `translateY(${(1 - p) * 110}%) skewY(${(1 - p) * 6}deg)` }}>{children}</div>
+    </div>
+  );
+};
+
+/** Lettres qui tombent une par une avec ressort. */
+const Letters: React.FC<{ text: string; at?: number; size: number; color?: string; stagger?: number; shadow?: string }> = ({ text, at = 0, size, color = WHITE, stagger = 2, shadow }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  return (
+    <div style={{ display: "flex", fontFamily: DISPLAY, fontSize: size, lineHeight: 1.04, color, textShadow: shadow, paddingTop: 8 }}>
+      {text.split("").map((ch, i) => {
+        const k = spring({ frame: frame - at - i * stagger, fps, config: { damping: 10, mass: 0.6, stiffness: 180 } });
+        return <span key={i} style={{ display: "inline-block", whiteSpace: "pre", opacity: Math.min(1, k * 2), transform: `translateY(${(1 - k) * -120}px) rotate(${(1 - k) * -14}deg) scale(${0.6 + 0.4 * k})` }}>{ch}</span>;
+      })}
+    </div>
+  );
+};
+
+/** Pastille dorée « badge » pop-up. */
+const Chip: React.FC<{ children: React.ReactNode; at: number; color?: string; text?: string }> = ({ children, at, color = GOLD, text = DEEP }) => (
+  <Pop at={at}>
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 12, padding: "10px 22px", borderRadius: 40, background: color, color: text,
+      fontFamily: SANS, fontWeight: 800, fontSize: 28, letterSpacing: "0.06em", boxShadow: "0 10px 30px rgba(0,0,0,0.45)" }}>{children}</div>
+  </Pop>
+);
+
+/** Habillage permanent en haut. */
 const Bug: React.FC<{ label?: string }> = ({ label = "LE PARCOURS" }) => {
   const frame = useCurrentFrame();
   const op = interpolate(frame, [0, 8], [0, 1], CL);
@@ -188,57 +324,64 @@ const Bug: React.FC<{ label?: string }> = ({ label = "LE PARCOURS" }) => {
   );
 };
 
-/** Carte « chapitre » : kicker doré, titre, ligne de détail, score en bandeau. */
-const Card: React.FC<{ kicker: string; title: string; title2?: string; detail?: string; score?: string; at?: number; bottom?: number }> = ({
-  kicker, title, title2, detail, score, at = 2, bottom = 300,
-}) => (
-  <AbsoluteFill>
-    <Shade />
-    <div style={{ position: "absolute", left: 70, right: 70, bottom }}>
-      <Rise at={at} dy={30}><div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 30, letterSpacing: "0.35em", color: GOLD }}>{kicker}</div></Rise>
-      <Mask at={at + 3}><div style={{ fontFamily: DISPLAY, fontSize: 132, lineHeight: 1.04, color: WHITE }}>{title}</div></Mask>
-      {title2 && <Mask at={at + 6}><div style={{ fontFamily: DISPLAY, fontSize: 132, lineHeight: 1.04, color: GOLD }}>{title2}</div></Mask>}
-      {detail && <Rise at={at + 9} dy={24}><div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 34, color: "rgba(255,255,255,0.86)", marginTop: 12, letterSpacing: "0.04em" }}>{detail}</div></Rise>}
-      {score && (
-        <Rise at={at + 12} dy={24}>
-          <div style={{ display: "inline-flex", marginTop: 24, overflow: "hidden", borderRadius: 6 }}>
-            <div style={{ width: 14, background: `linear-gradient(${GRANA} 50%, ${BLAU} 50%)` }} />
-            <div style={{ padding: "8px 28px", background: "rgba(7,16,46,0.85)", fontFamily: DISPLAY, fontSize: 66, color: WHITE, letterSpacing: "0.03em" }}>{score}</div>
-          </div>
-        </Rise>
-      )}
+/** Score : deux chiffres qui « tombent » séparément. */
+const Score: React.FC<{ a: string; b: string; left: string; right: string; at: number }> = ({ a, b, left, right, at }) => {
+  const ka = useSpring(at, 9);
+  const kb = useSpring(at + 5, 9);
+  const kl = useSpring(at - 3, 14);
+  return (
+    <div style={{ display: "inline-flex", alignItems: "stretch", marginTop: 22, borderRadius: 8, overflow: "hidden", boxShadow: "0 14px 40px rgba(0,0,0,0.5)", transform: `scaleX(${kl})`, transformOrigin: "left" }}>
+      <div style={{ padding: "10px 22px", background: GRANA, fontFamily: DISPLAY, fontSize: 52, color: WHITE, display: "flex", alignItems: "center" }}>{left}</div>
+      <div style={{ padding: "4px 26px", background: WHITE, fontFamily: DISPLAY, fontSize: 84, color: DEEP, display: "flex", gap: 18, alignItems: "center" }}>
+        <span style={{ display: "inline-block", transform: `translateY(${(1 - ka) * -90}px)`, opacity: Math.min(1, ka * 2) }}>{a}</span>
+        <span style={{ opacity: 0.5 }}>-</span>
+        <span style={{ display: "inline-block", transform: `translateY(${(1 - kb) * -90}px)`, opacity: Math.min(1, kb * 2) }}>{b}</span>
+      </div>
+      <div style={{ padding: "10px 22px", background: BLAU, fontFamily: DISPLAY, fontSize: 52, color: WHITE, display: "flex", alignItems: "center" }}>{right}</div>
     </div>
-  </AbsoluteFill>
-);
+  );
+};
 
 const Count: React.FC<{ to: number; at: number; dur?: number }> = ({ to, at, dur = 22 }) => {
   const frame = useCurrentFrame();
   return <>{Math.round(interpolate(frame, [at, at + dur], [0, to], { ...CL, easing: OUT }))}</>;
 };
 
+const Kicker: React.FC<{ children: React.ReactNode; at: number }> = ({ children, at }) => {
+  const frame = useCurrentFrame();
+  const w = interpolate(frame, [at, at + 12], [0, 1], { ...CL, easing: OUT });
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+      <div style={{ width: 70 * w, height: 5, background: GOLD }} />
+      <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 30, letterSpacing: "0.32em", color: GOLD, opacity: w }}>{children}</div>
+    </div>
+  );
+};
+
 /* ---------------- scènes ---------------- */
 
-// 0 – 6.09 : ouverture en couleur, drapeau blaugrana, titre
+// 0 – 6.09 : ouverture
 const Opening: React.FC = () => {
   const frame = useCurrentFrame();
-  const split = interpolate(frame, [0, 22], [0, 1], { ...CL, easing: OUT });
+  const split = interpolate(frame, [4, 26], [0, 1], { ...CL, easing: OUT });
   return (
     <AbsoluteFill>
-      <Grade><Full src="crest_flag" zoom={[1.3, 1.08]} pos="50% 45%" filter="brightness(0.38) saturate(1.15) blur(2px)" /></Grade>
-      <AbsoluteFill style={{ background: "radial-gradient(ellipse at 50% 50%, rgba(7,16,46,0.55) 0%, transparent 70%)" }} />
-      <Particles count={36} />
-      <LightSweep at={8} dur={40} />
+      <Grade><Full src="crest_flag" zoom={[1.35, 1.06]} pos="50% 45%" filter="brightness(0.4) saturate(1.15) blur(1.5px)" /></Grade>
+      <AbsoluteFill style={{ background: "radial-gradient(ellipse at 50% 50%, rgba(7,16,46,0.6) 0%, transparent 72%)" }} />
+      <Particles count={40} />
+      <LightSweep at={14} dur={40} />
       <AbsoluteFill style={{ alignItems: "center", justifyContent: "center" }}>
-        <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 30, letterSpacing: `${0.2 + split * 0.4}em`, color: GOLD, opacity: split }}>MÉS QUE UN CLUB</div>
-        <Mask at={10}><div style={{ fontFamily: DISPLAY, fontSize: 250, color: WHITE, lineHeight: 1, textShadow: "0 12px 50px rgba(0,0,0,0.6)" }}>BARÇA</div></Mask>
-        <Rise at={24} dy={20}>
-          <div style={{ display: "flex", gap: 0, marginTop: 18, height: 12, width: 520 }}>
-            {[GRANA, BLAU, GRANA, BLAU, GRANA, BLAU].map((c, i) => <div key={i} style={{ flex: 1, background: c }} />)}
+        <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 30, letterSpacing: `${0.15 + split * 0.4}em`, color: GOLD, opacity: split }}>MÉS QUE UN CLUB</div>
+        <Letters text="BARÇA" at={12} size={250} stagger={3} shadow="0 12px 50px rgba(0,0,0,0.6)" />
+        <Rise at={30} dy={20}>
+          <div style={{ display: "flex", marginTop: 18, height: 12, width: 520 }}>
+            {[GRANA, BLAU, GRANA, BLAU, GRANA, BLAU].map((c, i) => <div key={i} style={{ flex: 1, background: c, transform: `scaleY(${interpolate(frame, [30 + i * 2, 40 + i * 2], [0, 1], CL)})` }} />)}
           </div>
         </Rise>
-        <Rise at={34} dy={20}><div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 32, color: WHITE, letterSpacing: "0.3em", marginTop: 26 }}>LE PARCOURS</div></Rise>
+        <Rise at={40} dy={20}><div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 32, color: WHITE, letterSpacing: "0.3em", marginTop: 26 }}>LE PARCOURS</div></Rise>
       </AbsoluteFill>
       <StripeWipe at={-8} dur={16} />
+      <Shockwave at={12} />
     </AbsoluteFill>
   );
 };
@@ -246,12 +389,22 @@ const Opening: React.FC = () => {
 // 6.09 – 12.09 : l'ère Flick
 const Flick: React.FC = () => (
   <AbsoluteFill>
-    <Sequence durationInFrames={s(3)}><Grade><Clip src="yamal_edit" trim={3.2} zoom={[1.0, 1.1]} /></Grade></Sequence>
-    <Sequence from={s(3)}><Grade><Clip src="goal" trim={0.2} rate={1.0} zoom={[1.15, 1.25]} /></Grade></Sequence>
+    <Sequence durationInFrames={s(3)}><Trans enter="zoom"><Grade><Clip src="yamal_edit" trim={3.2} zoom={[1.0, 1.12]} /></Grade></Trans></Sequence>
+    <Sequence from={s(3)}><Trans enter="whipL" exit={false}><Grade><Ramp src="goal" trim={0.2} fastDur={1.2} fastRate={1.7} slowRate={0.6} zoom={[1.15, 1.32]} /></Grade></Trans></Sequence>
     <Vignette />
     <Bug />
-    <Card kicker="DEPUIS 2024" title="L'ÈRE" title2="HANSI FLICK" detail="Du jeu. De l'audace. Des trophées." />
-    <Flash at={[0, s(3)]} strength={0.6} />
+    <Shade />
+    <div style={{ position: "absolute", left: 70, right: 70, bottom: 300 }}>
+      <Kicker at={4}>DEPUIS 2024</Kicker>
+      <Mask at={7}><div style={{ fontFamily: DISPLAY, fontSize: 140, lineHeight: 1.04, color: WHITE }}>L'ÈRE</div></Mask>
+      <Mask at={11}><div style={{ fontFamily: DISPLAY, fontSize: 140, lineHeight: 1.04, color: GOLD }}>HANSI FLICK</div></Mask>
+      <div style={{ display: "flex", gap: 12, marginTop: 22, flexWrap: "wrap" }}>
+        <Chip at={18} color={GRANA} text={WHITE}>DU JEU</Chip>
+        <Chip at={24} color={BLAU} text={WHITE}>DE L'AUDACE</Chip>
+        <Chip at={30}>DES TROPHÉES</Chip>
+      </div>
+    </div>
+    <Flash at={[0, s(3)]} strength={0.55} />
   </AbsoluteFill>
 );
 
@@ -259,31 +412,32 @@ const Flick: React.FC = () => (
 const TROPHIES = ["LIGA", "COPA DEL REY", "SUPERCOPA"];
 const Treble: React.FC = () => {
   const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
   return (
     <AbsoluteFill>
-      <Sequence durationInFrames={s(2)}><Grade><Clip src="celebration" trim={0.5} rate={1.1} /></Grade></Sequence>
-      <Sequence from={s(2)}><Grade><Clip src="celebration" trim={44} rate={0.9} zoom={[1.0, 1.12]} /></Grade></Sequence>
+      <Sequence durationInFrames={s(2)}><Trans enter="whipR"><Grade><Clip src="celebration" trim={0.5} rate={1.1} punch={[s(1)]} /></Grade></Trans></Sequence>
+      <Sequence from={s(2)}><Trans enter="zoom" exit={false}><Grade><Clip src="celebration" trim={44} rate={0.9} zoom={[1.0, 1.14]} punch={[s(1), s(2), s(3)]} /></Grade></Trans></Sequence>
       <Vignette />
-      <Shade h={1100} />
+      <Shade h={1150} />
       <Bug />
       <div style={{ position: "absolute", left: 70, right: 70, bottom: 300 }}>
-        <Rise at={2} dy={30}><div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 30, letterSpacing: "0.35em", color: GOLD }}>SAISON 2024-25</div></Rise>
-        <Mask at={4}><div style={{ fontFamily: DISPLAY, fontSize: 150, lineHeight: 1.04, color: WHITE }}>LE TRIPLÉ</div></Mask>
+        <Kicker at={2}>SAISON 2024-25</Kicker>
+        <Letters text="LE TRIPLÉ" at={5} size={150} stagger={2} />
         <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 20 }}>
           {TROPHIES.map((t, i) => {
             const at = s(1 + i * 1.0);
-            const p = interpolate(frame, [at, at + 10], [0, 1], { ...CL, easing: OUT });
+            const k = spring({ frame: frame - at, fps, config: { damping: 10, mass: 0.6, stiffness: 170 } });
             return (
-              <div key={t} style={{ display: "flex", alignItems: "center", gap: 20, opacity: p, transform: `translateX(${(1 - p) * -80}px)` }}>
-                <div style={{ width: 54, height: 54, borderRadius: 27, background: GOLD, display: "flex", alignItems: "center", justifyContent: "center",
-                  fontFamily: DISPLAY, fontSize: 32, color: DEEP, boxShadow: `0 0 ${20 * p}px ${GOLD}` }}>✓</div>
-                <div style={{ fontFamily: DISPLAY, fontSize: 70, color: WHITE, letterSpacing: "0.03em" }}>{t}</div>
+              <div key={t} style={{ display: "flex", alignItems: "center", gap: 20, opacity: frame < at ? 0 : 1, transform: `translateX(${(1 - k) * -120}px)` }}>
+                <div style={{ width: 58, height: 58, borderRadius: 29, background: GOLD, display: "flex", alignItems: "center", justifyContent: "center",
+                  fontFamily: SANS, fontWeight: 800, fontSize: 32, color: DEEP, transform: `scale(${k})`, boxShadow: `0 0 ${24 * k}px ${GOLD}` }}>✓</div>
+                <div style={{ fontFamily: DISPLAY, fontSize: 72, color: WHITE, letterSpacing: "0.03em" }}>{t}</div>
               </div>
             );
           })}
         </div>
       </div>
-      <Flash at={[0, s(2)]} strength={0.6} />
+      <Flash at={[0, s(2), s(3), s(4)]} strength={0.45} len={5} />
     </AbsoluteFill>
   );
 };
@@ -291,17 +445,26 @@ const Treble: React.FC = () => {
 // 18.09 – 24.09 : DROP — Supercoupe 2026
 const Supercopa: React.FC = () => {
   const frame = useCurrentFrame();
-  const shake = interpolate(frame, [0, 12], [24, 0], CL);
+  const shake = interpolate(frame, [0, 14], [30, 0], CL);
   return (
     <AbsoluteFill style={{ transform: `translate(${(random(`a${frame}`) - 0.5) * shake}px, ${(random(`b${frame}`) - 0.5) * shake}px)` }}>
-      <Sequence durationInFrames={s(2)}><Grade><Clip src="goal" trim={2.6} rate={0.9} zoom={[1.3, 1.15]} /></Grade></Sequence>
-      <Sequence from={s(2)}><Grade><Clip src="trophy_pitch" trim={1.0} rate={1.0} zoom={[1.0, 1.1]} /></Grade></Sequence>
+      <RGBSplit at={[0, s(2)]}>
+        <Sequence durationInFrames={s(2)}><Grade><Ramp src="goal" trim={2.2} fastDur={0.7} fastRate={1.4} slowRate={0.5} zoom={[1.3, 1.45]} /></Grade></Sequence>
+        <Sequence from={s(2)}><Trans enter="spin" exit={false}><Grade><Clip src="trophy_pitch" trim={1.0} zoom={[1.0, 1.12]} punch={[s(1.5), s(2.5)]} /></Grade></Trans></Sequence>
+      </RGBSplit>
       <Vignette />
       <Bug />
       <Particles count={30} />
-      <Sequence from={s(1.5)} layout="none">
-        <Card kicker="11 JANVIER 2026 · DJEDDAH" title="SUPERCOUPE" detail="Doublé de Raphinha en finale" score="BARÇA 3-2 REAL MADRID" at={0} />
+      <Shade h={1000} />
+      <Sequence from={s(1.6)} layout="none">
+        <div style={{ position: "absolute", left: 70, right: 70, bottom: 300 }}>
+          <Kicker at={0}>11 JANVIER 2026 · DJEDDAH</Kicker>
+          <Letters text="SUPERCOUPE" at={3} size={128} stagger={1.5} />
+          <Score at={10} left="BARÇA" right="REAL" a="3" b="2" />
+          <div style={{ marginTop: 18 }}><Chip at={22}>⚽ ⚽ DOUBLÉ DE RAPHINHA</Chip></div>
+        </div>
       </Sequence>
+      <SpeedLines at={0} dur={16} />
       <Shockwave at={0} />
       <Flash at={[0]} strength={1} len={10} />
     </AbsoluteFill>
@@ -312,45 +475,68 @@ const Supercopa: React.FC = () => {
 const Titre: React.FC = () => (
   <AbsoluteFill>
     <Sequence durationInFrames={s(4)}>
-      <Grade><Framed src="champions" top={150} width={1150} zoom={[1.0, 1.08]} /></Grade>
-      <LightSweep at={6} dur={30} />
+      <Trans enter="drop"><Grade><Framed src="champions" top={150} width={1150} zoom={[1.0, 1.1]} /></Grade></Trans>
+      <LightSweep at={8} dur={30} />
+      <Confetti count={60} />
     </Sequence>
-    <Sequence from={s(4)}><Grade><Clip src="celebration" trim={36} rate={1.0} zoom={[1.05, 1.15]} /></Grade></Sequence>
+    <Sequence from={s(4)}><Trans enter="zoom" exit={false}><Grade><Clip src="celebration" trim={36} zoom={[1.05, 1.18]} /></Grade></Trans></Sequence>
+    <Leak at={s(3.6)} dur={30} />
     <Vignette />
     <Bug />
-    <Card kicker="10 MAI 2026 · CAMP NOU" title="LE CLÁSICO" title2="DU TITRE" detail="Rashford et Ferran Torres en 20 minutes" score="BARÇA 2-0 REAL MADRID" />
-    <Flash at={[0, s(4)]} strength={0.6} />
+    <Shade h={950} />
+    <div style={{ position: "absolute", left: 70, right: 70, bottom: 300 }}>
+      <Kicker at={3}>10 MAI 2026 · CAMP NOU</Kicker>
+      <Mask at={6}><div style={{ fontFamily: DISPLAY, fontSize: 132, lineHeight: 1.04, color: WHITE }}>LE CLÁSICO</div></Mask>
+      <Mask at={10}><div style={{ fontFamily: DISPLAY, fontSize: 132, lineHeight: 1.04, color: GOLD }}>DU TITRE</div></Mask>
+      <Score at={16} left="BARÇA" right="REAL" a="2" b="0" />
+      <div style={{ display: "flex", gap: 12, marginTop: 18 }}>
+        <Chip at={28} color={GRANA} text={WHITE}>⚽ RASHFORD</Chip>
+        <Chip at={33} color={BLAU} text={WHITE}>⚽ FERRAN TORRES</Chip>
+      </div>
+    </div>
+    <Flash at={[0, s(4)]} strength={0.55} />
   </AbsoluteFill>
 );
 
-// 30.09 – 34.09 : 29 titres, 2 de suite
-const Vingtneuf: React.FC = () => (
-  <AbsoluteFill>
-    <Grade><Clip src="celebration" trim={45} rate={0.85} zoom={[1.1, 1.2]} filter="brightness(0.7)" /></Grade>
-    <Vignette />
-    <Particles count={50} />
-    <Shade h={1200} />
-    <Bug />
-    <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "flex-start", padding: "0 70px 290px" }}>
-      <div style={{ fontFamily: DISPLAY, fontSize: 380, color: GOLD, lineHeight: 0.95, textShadow: `0 0 60px rgba(237,187,0,0.55)` }}><Count to={29} at={0} /></div>
-      <Rise at={6} dy={20}><div style={{ fontFamily: DISPLAY, fontSize: 92, color: WHITE, lineHeight: 1.05 }}>TITRES DE CHAMPION</div></Rise>
-      <Rise at={12} dy={20}><div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 34, color: "rgba(255,255,255,0.86)", letterSpacing: "0.12em", marginTop: 10 }}>2025 · 2026 — DEUX DE SUITE</div></Rise>
+// 30.09 – 34.09 : 29 titres, deux de suite
+const Vingtneuf: React.FC = () => {
+  const k = useSpring(0, 8, 0.8);
+  return (
+    <AbsoluteFill>
+      <Trans enter="zoom"><Grade><Clip src="celebration" trim={45} rate={0.85} zoom={[1.1, 1.24]} filter="brightness(0.7)" /></Grade></Trans>
+      <Vignette />
+      <Particles count={50} />
+      <Confetti count={50} />
+      <Shade h={1250} />
+      <Bug />
+      <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "flex-start", padding: "0 70px 290px" }}>
+        <div style={{ fontFamily: DISPLAY, fontSize: 400, color: GOLD, lineHeight: 0.95, textShadow: "0 0 60px rgba(237,187,0,0.55)", transform: `scale(${0.5 + 0.5 * k})`, transformOrigin: "left bottom" }}>
+          <Count to={29} at={0} />
+        </div>
+        <Rise at={6} dy={20}><div style={{ fontFamily: DISPLAY, fontSize: 94, color: WHITE, lineHeight: 1.05 }}>TITRES DE CHAMPION</div></Rise>
+        <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
+          <Chip at={14}>🏆 2025</Chip>
+          <Chip at={19}>🏆 2026</Chip>
+          <Chip at={25} color={GRANA} text={WHITE}>DEUX DE SUITE</Chip>
+        </div>
+      </AbsoluteFill>
+      <Flash at={[0]} color={GOLD} strength={0.5} />
     </AbsoluteFill>
-    <Flash at={[0]} color={GOLD} strength={0.5} />
-  </AbsoluteFill>
-);
+  );
+};
 
 // 34.09 – 36.09 : respiration
 const Breath: React.FC = () => {
   const frame = useCurrentFrame();
   return (
     <AbsoluteFill>
-      <Grade><Clip src="yamal_edit" trim={0.2} rate={0.5} zoom={[1.2, 1.28]} filter={`brightness(${interpolate(frame, [0, 60], [0.5, 0.8], CL)}) saturate(0.6)`} /></Grade>
+      <Grade><Clip src="yamal_edit" trim={0.2} rate={0.45} zoom={[1.2, 1.32]} filter={`brightness(${interpolate(frame, [0, 60], [0.45, 0.8], CL)}) saturate(0.55)`} /></Grade>
       <Vignette />
       <AbsoluteFill style={{ alignItems: "center", justifyContent: "center" }}>
-        <Rise at={4} dy={20}><div style={{ fontFamily: SANS, fontWeight: 300, fontSize: 56, color: WHITE, letterSpacing: "0.2em", textAlign: "center" }}>ET AU CŒUR</div></Rise>
-        <Rise at={14} dy={20}><div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 56, color: GOLD, letterSpacing: "0.2em", textAlign: "center" }}>DE TOUT ÇA…</div></Rise>
+        <Rise at={4} dy={20}><div style={{ fontFamily: SANS, fontWeight: 300, fontSize: 58, color: WHITE, letterSpacing: "0.2em", textAlign: "center" }}>ET AU CŒUR</div></Rise>
+        <Rise at={14} dy={20}><div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 58, color: GOLD, letterSpacing: "0.2em", textAlign: "center" }}>DE TOUT ÇA…</div></Rise>
       </AbsoluteFill>
+      <AbsoluteFill style={{ background: WHITE, opacity: interpolate(frame, [52, 60], [0, 0.9], CL) }} />
     </AbsoluteFill>
   );
 };
@@ -360,22 +546,26 @@ const Yamal: React.FC = () => {
   const frame = useCurrentFrame();
   return (
     <AbsoluteFill>
-      <Sequence durationInFrames={s(2)}><Grade><Clip src="yamal_kopa" trim={0.6} zoom={[1.15, 1.05]} /></Grade></Sequence>
-      <Sequence from={s(2)} durationInFrames={s(2)}><Grade><Clip src="yamal_kopa" trim={5.2} rate={0.9} zoom={[1.0, 1.1]} /></Grade></Sequence>
-      <Sequence from={s(4)}><Grade><Clip src="yamal_edit" trim={12.0} rate={0.9} zoom={[1.05, 1.15]} /></Grade></Sequence>
+      <RGBSplit at={[0, s(2), s(4)]} amt={18}>
+        <Sequence durationInFrames={s(2)}><Trans enter="zoom"><Grade><Clip src="yamal_kopa" trim={0.6} zoom={[1.18, 1.05]} /></Grade></Trans></Sequence>
+        <Sequence from={s(2)} durationInFrames={s(2)}><Trans enter="whipL"><Grade><Ramp src="yamal_kopa" trim={5.0} fastDur={0.6} fastRate={1.5} slowRate={0.55} zoom={[1.0, 1.12]} /></Grade></Trans></Sequence>
+        <Sequence from={s(4)}><Trans enter="whipR" exit={false}><Grade><Clip src="yamal_edit" trim={12.0} rate={0.9} zoom={[1.05, 1.18]} punch={[s(0.8)]} /></Grade></Trans></Sequence>
+      </RGBSplit>
       <Vignette />
-      <Shade h={1000} />
+      <Shade h={1050} />
       <Bug label="LE NUMÉRO 10" />
-      {/* grand 10 en filigrane */}
       <div style={{ position: "absolute", right: -40, top: 380, fontFamily: DISPLAY, fontSize: 900, lineHeight: 1, color: "transparent",
         WebkitTextStroke: `4px rgba(237,187,0,${interpolate(frame, [0, 20], [0, 0.55], CL)})`, transform: `translateY(${interpolate(frame, [0, 180], [40, -40])}px)` }}>10</div>
       <div style={{ position: "absolute", left: 70, right: 70, bottom: 300 }}>
-        <Rise at={4} dy={30}><div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 30, letterSpacing: "0.35em", color: GOLD }}>UN ENFANT DE LA MASIA</div></Rise>
-        <Mask at={8}><div style={{ fontFamily: DISPLAY, fontSize: 150, lineHeight: 1.03, color: WHITE }}>LAMINE</div></Mask>
-        <Mask at={12}><div style={{ fontFamily: DISPLAY, fontSize: 150, lineHeight: 1.03, color: WHITE }}>YAMAL</div></Mask>
-        <Rise at={20} dy={20}><div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 34, color: "rgba(255,255,255,0.86)", marginTop: 12 }}>La magie à chaque ballon.</div></Rise>
+        <Kicker at={4}>UN ENFANT DE LA MASIA</Kicker>
+        <Letters text="LAMINE" at={8} size={150} stagger={2} />
+        <Letters text="YAMAL" at={14} size={150} stagger={2} color={GOLD} />
+        <div style={{ display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap" }}>
+          <Chip at={28}>N°10</Chip>
+          <Chip at={33} color={GRANA} text={WHITE}>KOPA TROPHY 2024 · 2025</Chip>
+        </div>
       </div>
-      <Flash at={[0, s(2), s(4)]} strength={0.55} />
+      <Flash at={[0, s(2), s(4)]} strength={0.5} />
     </AbsoluteFill>
   );
 };
@@ -390,30 +580,32 @@ const PLAYERS: { name: string; n: string; x: number; y: number }[] = [
 ];
 const Attaque: React.FC = () => {
   const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
   return (
     <AbsoluteFill>
-      <Grade><Framed src="attack" top={330} width={1080} zoom={[1.0, 1.06]} /></Grade>
+      <Trans enter="drop"><Grade><Framed src="attack" top={330} width={1080} zoom={[1.0, 1.07]} /></Grade></Trans>
       <Vignette />
       <Bug label="L'ATTAQUE" />
       {PLAYERS.map((p, i) => {
         const at = s(0.5 + i * 0.5);
-        const k = interpolate(frame, [at, at + 10], [0, 1], { ...CL, easing: OUT });
-        const ly = 330 + p.y * 1.0;
+        const k = spring({ frame: frame - at, fps, config: { damping: 9, mass: 0.6, stiffness: 180 } });
+        const line = interpolate(frame, [at, at + 10], [0, 1], { ...CL, easing: OUT });
         return (
-          <div key={p.name} style={{ position: "absolute", left: p.x, top: ly - 170, transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", opacity: k }}>
-            <div style={{ padding: "6px 14px", background: i % 2 ? BLAU : GRANA, fontFamily: SANS, fontWeight: 800, fontSize: 24, color: WHITE, letterSpacing: "0.06em",
-              whiteSpace: "nowrap", transform: `scale(${0.6 + 0.4 * k})`, boxShadow: "0 6px 20px rgba(0,0,0,0.5)" }}>
+          <div key={p.name} style={{ position: "absolute", left: p.x, top: 330 + p.y - 170, transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", opacity: frame < at ? 0 : 1 }}>
+            <div style={{ padding: "7px 16px", background: i % 2 ? BLAU : GRANA, fontFamily: SANS, fontWeight: 800, fontSize: 25, color: WHITE, letterSpacing: "0.06em",
+              whiteSpace: "nowrap", transform: `scale(${k}) translateY(${(1 - k) * 30}px)`, boxShadow: "0 8px 22px rgba(0,0,0,0.55)", borderRadius: 4 }}>
               <span style={{ color: GOLD }}>{p.n}</span> {p.name}
             </div>
-            <div style={{ width: 3, height: 90 * k, background: GOLD }} />
-            <div style={{ width: 14, height: 14, borderRadius: 7, background: GOLD, boxShadow: `0 0 16px ${GOLD}` }} />
+            <div style={{ width: 3, height: 90 * line, background: GOLD }} />
+            <div style={{ width: 16, height: 16, borderRadius: 8, background: GOLD, boxShadow: `0 0 ${10 + 10 * Math.sin(frame / 4)}px ${GOLD}` }} />
           </div>
         );
       })}
       <div style={{ position: "absolute", left: 70, right: 70, bottom: 300 }}>
-        <Rise at={s(3)} dy={30}><div style={{ fontFamily: DISPLAY, fontSize: 110, color: WHITE, lineHeight: 1.05 }}>UNE ATTAQUE</div></Rise>
-        <Rise at={s(3.4)} dy={30}><div style={{ fontFamily: DISPLAY, fontSize: 110, color: GOLD, lineHeight: 1.05 }}>DE FEU</div></Rise>
+        <Letters text="UNE ATTAQUE" at={s(3)} size={112} stagger={1.5} />
+        <Letters text="DE FEU" at={s(3.5)} size={112} stagger={2} color={GOLD} shadow="0 0 40px rgba(255,120,0,0.6)" />
       </div>
+      <Leak at={s(3)} dur={50} />
       <Flash at={[0]} strength={0.6} />
     </AbsoluteFill>
   );
@@ -425,32 +617,32 @@ const CeSoir: React.FC = () => {
   const blink = Math.floor(frame / 8) % 2 === 0 ? 1 : 0.35;
   return (
     <AbsoluteFill>
-      <Sequence durationInFrames={s(3)}><Grade><Clip src="yamal_edit2" trim={4.3} zoom={[1.05, 1.15]} /></Grade></Sequence>
-      <Sequence from={s(3)}><Grade><Clip src="trophy_pitch" trim={6.0} rate={0.9} zoom={[1.0, 1.12]} /></Grade></Sequence>
+      <Sequence durationInFrames={s(3)}><Trans enter="zoom"><Grade><Clip src="yamal_edit2" trim={4.3} zoom={[1.05, 1.18]} /></Grade></Trans></Sequence>
+      <Sequence from={s(3)}><Trans enter="whipL" exit={false}><Grade><Clip src="trophy_pitch" trim={6.0} rate={0.9} zoom={[1.0, 1.14]} /></Grade></Trans></Sequence>
       <Vignette />
-      <Shade h={1150} />
+      <Shade h={1200} />
       <Bug label="LIGA · J12" />
       <div style={{ position: "absolute", left: 70, right: 70, bottom: 290 }}>
-        <Rise at={2} dy={20}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 14, padding: "10px 22px", background: GRANA, fontFamily: SANS, fontWeight: 800, fontSize: 28, color: WHITE, letterSpacing: "0.2em" }}>
+        <Pop at={2} style={{ transformOrigin: "left center" }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 14, padding: "10px 22px", background: GRANA, fontFamily: SANS, fontWeight: 800, fontSize: 30, color: WHITE, letterSpacing: "0.2em" }}>
             <span style={{ width: 16, height: 16, borderRadius: 8, background: WHITE, opacity: blink }} /> CE SOIR · 21H
           </div>
-        </Rise>
-        <Mask at={6}><div style={{ fontFamily: DISPLAY, fontSize: 150, lineHeight: 1.03, color: WHITE }}>LE LEADER</div></Mask>
-        <Mask at={10}><div style={{ fontFamily: DISPLAY, fontSize: 150, lineHeight: 1.03, color: GOLD }}>EN MISSION</div></Mask>
-        <Rise at={16} dy={20}><div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 34, color: "rgba(255,255,255,0.88)", marginTop: 14 }}>Atlético – Barça · Metropolitano, Madrid</div></Rise>
-        <Rise at={22} dy={20}>
-          <div style={{ display: "flex", gap: 16, marginTop: 24 }}>
-            {[["1er", "DE LIGA"], ["+2", "PTS D'AVANCE"]].map(([a, b]) => (
-              <div key={b} style={{ padding: "12px 22px", background: "rgba(255,255,255,0.08)", borderTop: `5px solid ${GOLD}` }}>
-                <div style={{ fontFamily: DISPLAY, fontSize: 64, color: WHITE, lineHeight: 1 }}>{a}</div>
+        </Pop>
+        <Letters text="LE LEADER" at={6} size={150} stagger={2} />
+        <Letters text="EN MISSION" at={12} size={150} stagger={2} color={GOLD} />
+        <Rise at={20} dy={20}><div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 34, color: "rgba(255,255,255,0.88)", marginTop: 14 }}>Atlético – Barça · Metropolitano, Madrid</div></Rise>
+        <div style={{ display: "flex", gap: 16, marginTop: 24 }}>
+          {[["1er", "DE LIGA"], ["+2", "PTS D'AVANCE"]].map(([a, b], i) => (
+            <Pop key={b} at={28 + i * 6}>
+              <div style={{ padding: "12px 24px", background: "rgba(255,255,255,0.1)", borderTop: `5px solid ${GOLD}`, backdropFilter: "blur(6px)" }}>
+                <div style={{ fontFamily: DISPLAY, fontSize: 66, color: WHITE, lineHeight: 1 }}>{a}</div>
                 <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 20, color: GOLD, letterSpacing: "0.2em", marginTop: 6 }}>{b}</div>
               </div>
-            ))}
-          </div>
-        </Rise>
+            </Pop>
+          ))}
+        </div>
       </div>
-      <StripeWipe at={-8} dur={14} />
+      <StripeWipe at={-8} dur={14} diag />
     </AbsoluteFill>
   );
 };
@@ -461,14 +653,16 @@ const Fin: React.FC = () => {
   const out = interpolate(frame, [s(3.4), s(4.2)], [0, 1], CL);
   return (
     <AbsoluteFill>
-      <Grade><Full src="visca" zoom={[1.12, 1.0]} pos="50% 40%" /></Grade>
-      <Particles count={30} />
-      <LightSweep at={4} dur={30} />
+      <Trans enter="spin" exit={false}><Grade><Full src="visca" zoom={[1.14, 1.0]} pos="50% 40%" /></Grade></Trans>
+      <Particles count={34} />
+      <Confetti count={40} />
+      <LightSweep at={6} dur={30} />
       <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: 230 }}>
         <Shade h={600} />
-        <Rise at={10} dy={20}><div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 50, color: WHITE, position: "relative" }}>@viber.flow4</div></Rise>
-        <Rise at={16} dy={14}><div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 27, color: "rgba(255,255,255,0.8)", marginTop: 12, position: "relative" }}>#FCBarcelona #ViscaBarça #LaLiga #AtletiBarça</div></Rise>
+        <Pop at={12} style={{ position: "relative" }}><div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 52, color: WHITE }}>@viber.flow4</div></Pop>
+        <Rise at={18} dy={14}><div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 27, color: "rgba(255,255,255,0.8)", marginTop: 12, position: "relative" }}>#FCBarcelona #ViscaBarça #LaLiga #AtletiBarça</div></Rise>
       </AbsoluteFill>
+      <SpeedLines at={0} dur={12} />
       <Shockwave at={0} />
       <Flash at={[0]} color={GOLD} strength={0.7} len={10} />
       <AbsoluteFill style={{ background: "#000", opacity: out }} />
@@ -477,27 +671,40 @@ const Fin: React.FC = () => {
 };
 
 /* ---------------- timeline ---------------- */
-const SCENES: { from: number; to: number; el: React.ReactNode }[] = [
-  { from: 0, to: B(12), el: <Opening /> },
-  { from: B(12), to: B(24), el: <Flick /> },
-  { from: B(24), to: B(36), el: <Treble /> },
-  { from: B(36), to: B(48), el: <Supercopa /> },
-  { from: B(48), to: B(60), el: <Titre /> },
-  { from: B(60), to: B(68), el: <Vingtneuf /> },
-  { from: B(68), to: B(72), el: <Breath /> },
-  { from: B(72), to: B(84), el: <Yamal /> },
-  { from: B(84), to: B(96), el: <Attaque /> },
-  { from: B(96), to: B(108), el: <CeSoir /> },
-  { from: B(108), to: 58.3, el: <Fin /> },
+const SCENES: { from: number; to: number; el: React.ReactNode; enter?: Enter }[] = [
+  { from: 0, to: B(12), el: <Opening />, enter: "none" },
+  { from: B(12), to: B(24), el: <Flick />, enter: "none" },
+  { from: B(24), to: B(36), el: <Treble />, enter: "none" },
+  { from: B(36), to: B(48), el: <Supercopa />, enter: "zoom" },
+  { from: B(48), to: B(60), el: <Titre />, enter: "none" },
+  { from: B(60), to: B(68), el: <Vingtneuf />, enter: "none" },
+  { from: B(68), to: B(72), el: <Breath />, enter: "zoom" },
+  { from: B(72), to: B(84), el: <Yamal />, enter: "none" },
+  { from: B(84), to: B(96), el: <Attaque />, enter: "none" },
+  { from: B(96), to: B(108), el: <CeSoir />, enter: "none" },
+  { from: B(108), to: 58.3, el: <Fin />, enter: "none" },
 ];
 
-/** Plages prévues pour la voix off (début, fin en secondes) — à remplir avec les fichiers vo/l*.wav. */
+/** Pulsation globale sur les temps forts (sections énergiques). */
+const BeatPulse: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const frame = useCurrentFrame();
+  const t = frame / FPS;
+  const active = (t >= 18.09 && t < 34) || (t >= 36.09 && t < 56);
+  let k = 0;
+  if (active) {
+    const since = (t - 0.09) % 1.0; // un coup par seconde (2 temps)
+    k = Math.exp(-since * 9);
+  }
+  return <AbsoluteFill style={{ transform: `scale(${1 + 0.022 * k})` }}>{children}</AbsoluteFill>;
+};
+
+/** Plages prévues pour la voix off — à remplir avec les fichiers fcb/vo/l*.wav. */
 export const FCB_VO: { at: number; file?: string }[] = [];
 
 const Grain: React.FC = () => {
   const frame = useCurrentFrame();
   return (
-    <AbsoluteFill style={{ pointerEvents: "none", opacity: 0.1, mixBlendMode: "overlay" }}>
+    <AbsoluteFill style={{ pointerEvents: "none", opacity: 0.09, mixBlendMode: "overlay" }}>
       <svg width="1080" height="1920">
         <filter id="fcbn"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed={frame % 12} /></filter>
         <rect width="100%" height="100%" filter="url(#fcbn)" />
@@ -506,9 +713,16 @@ const Grain: React.FC = () => {
   );
 };
 
+const SvgDefs: React.FC = () => (
+  <svg width="0" height="0" style={{ position: "absolute" }}>
+    <filter id="fcbRed"><feColorMatrix type="matrix" values="0.65 0 0 0 0.05  0 0 0 0 0  0 0 0.27 0 0  0 0 0 1 0" /></filter>
+    <filter id="fcbBlue"><feColorMatrix type="matrix" values="0 0 0 0 0  0 0.3 0 0 0  0 0 0.6 0 0.05  0 0 0 1 0" /></filter>
+  </svg>
+);
+
 const Sound: React.FC = () => {
   const hits = [B(36), B(108)];
-  const whooshes = [B(12), B(24), B(30), B(48), B(56), B(60), B(72), B(76), B(80), B(84), B(96), B(102)];
+  const whooshes = [B(12), B(18), B(24), B(28), B(48), B(56), B(60), B(72), B(76), B(80), B(84), B(96), B(102)];
   return (
     <>
       <Audio src={staticFile("fcb/music.wav")} volume={(f) => interpolate(f, [s(56.8), s(58.3)], [1, 0], CL)} />
@@ -522,9 +736,14 @@ const Sound: React.FC = () => {
 
 export const BarcaParcours: React.FC = () => (
   <AbsoluteFill style={{ background: DEEP }}>
-    {SCENES.map((sc) => (
-      <Sequence key={sc.from} from={s(sc.from)} durationInFrames={s(sc.to) - s(sc.from)}>{sc.el}</Sequence>
-    ))}
+    <SvgDefs />
+    <BeatPulse>
+      {SCENES.map((sc) => (
+        <Sequence key={sc.from} from={s(sc.from)} durationInFrames={s(sc.to) - s(sc.from)}>
+          <Trans enter={sc.enter ?? "none"} exit={sc.to < 58}>{sc.el}</Trans>
+        </Sequence>
+      ))}
+    </BeatPulse>
     <Grain />
     <Sound />
   </AbsoluteFill>
